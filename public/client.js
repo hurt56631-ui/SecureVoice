@@ -7,6 +7,9 @@ const localAudio = document.getElementById('localAudio');
 const remoteAudioContainer = document.getElementById('remote-audio-container');
 const statusText = document.getElementById('statusText');
 const myIdSpan = document.getElementById('my-id');
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const sendButton = document.getElementById('send-button');
 
 // WebRTC & WebSocket Globals
 let localStream;
@@ -76,10 +79,15 @@ function setupWebSocketListeners(roomName) {
                 data.peerIds.forEach(peerId => {
                     createAndSendOffer(peerId);
                 });
+                // 启用聊天功能
+                chatInput.disabled = false;
+                sendButton.disabled = false;
+                setupChat();
                 break;
             case 'new-peer':
                 // 新 peer 加入，等待对方 offer
                 console.log(`新成员加入: ${data.peerId}`);
+                addChatMessage('系统', `新成员加入: ${data.peerId.substring(0, 8)}...`);
                 break;
             case 'offer':
                 handleOffer(data.sdp, data.sender);
@@ -90,8 +98,12 @@ function setupWebSocketListeners(roomName) {
             case 'ice-candidate':
                 handleIceCandidate(data.candidate, data.sender);
                 break;
+            case 'chat-message':
+                addChatMessage(data.sender.substring(0, 8) + '...', data.message);
+                break;
             case 'peer-disconnected':
                 handlePeerDisconnect(data.peerId);
+                addChatMessage('系统', `成员 ${data.peerId.substring(0, 8)}... 离开了`);
                 break;
         }
     };
@@ -201,6 +213,48 @@ function handlePeerDisconnect(peerId) {
 }
 
 
+// --- 聊天功能 ---
+
+function setupChat() {
+    sendButton.onclick = sendMessage;
+    chatInput.onkeydown = (event) => {
+        if (event.key === 'Enter') {
+            sendMessage();
+        }
+    };
+}
+
+function sendMessage() {
+    const message = chatInput.value.trim();
+    if (message && socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'chat-message',
+            data: { message }
+        }));
+        addChatMessage('我', message);
+        chatInput.value = '';
+    }
+}
+
+function addChatMessage(sender, message) {
+    const messageElement = document.createElement('div');
+    messageElement.className = 'chat-message';
+    
+    const senderSpan = document.createElement('span');
+    senderSpan.className = 'peer-id';
+    senderSpan.textContent = `${sender}: `;
+    
+    const messageText = document.createElement('span');
+    messageText.textContent = message;
+
+    messageElement.appendChild(senderSpan);
+    messageElement.appendChild(messageText);
+    
+    chatMessages.appendChild(messageElement);
+    chatMessages.scrollTop = chatMessages.scrollHeight; // 自动滚动到底部
+}
+
+
 // --- UI & 工具函数 ---
 
 function addRemoteAudioStream(peerId, stream) {
@@ -237,4 +291,8 @@ function cleanup() {
     joinButton.disabled = false;
     roomNameInput.disabled = false;
     myIdSpan.textContent = '';
+    chatMessages.innerHTML = '';
+    chatInput.value = '';
+    chatInput.disabled = true;
+    sendButton.disabled = true;
 }

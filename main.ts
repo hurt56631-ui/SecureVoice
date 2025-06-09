@@ -69,6 +69,22 @@ const handler = (req: Request): Response => {
             }
             break;
           }
+          
+          case 'chat-message': {
+            const room = rooms.get(roomName);
+            if (room) {
+              // 广播消息给房间内所有其他人
+              room.forEach((peerSocket, id) => {
+                if (id !== peerId) {
+                  peerSocket.send(JSON.stringify({
+                    type: 'chat-message',
+                    data: { sender: peerId, message: data.message }
+                  }));
+                }
+              });
+            }
+            break;
+          }
         }
       } catch (error) {
         console.error("Failed to process message:", event.data, error);

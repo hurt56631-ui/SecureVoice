@@ -18,8 +18,22 @@
         #remote-audio-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
         .peer-audio { padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f7fafc; }
         .peer-audio p { margin: 0 0 10px 0; font-weight: bold; font-size: 14px; word-break: break-all; }
-        .peer-audio audio { width: 100%; }
+        .peer-audio audio { width: 100%; display: none; } /* 隐藏原始播放器 */
+        .audio-card { padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f7fafc; display: flex; flex-direction: column; align-items: center; }
+        .audio-card.speaking { border-color: #3182ce; box-shadow: 0 0 8px rgba(49, 130, 206, 0.5); }
+        .audio-card p { margin: 0 0 10px 0; font-weight: bold; font-size: 14px; word-break: break-all; }
+        .visualizer-canvas { width: 100%; height: 50px; background-color: #edf2f7; border-radius: 4px; }
+        .audio-controls { margin-top: 10px; }
+        .mute-btn { background: #718096; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 14px; display: flex; justify-content: center; align-items: center; }
+        .mute-btn.muted { background: #c53030; }
+
         .stream-box { margin-top: 20px; padding: 15px; background: #e2e8f0; border-radius: 8px; }
+        .chat-container { margin-top: 20px; }
+        #chat-messages { height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: #f7fafc; }
+        .chat-message { margin-bottom: 8px; }
+        .chat-message .peer-id { font-weight: bold; color: #2b6cb0; }
+        .chat-input-area { display: flex; gap: 10px; }
+        #chat-input { flex-grow: 1; }
     </style>
 </head>
 <body>
@@ -36,12 +50,29 @@
         
         <div class="stream-box">
             <h3>我的音频</h3>
-            <audio id="localAudio" autoplay muted></audio>
+            <div id="local-audio-card" class="audio-card">
+                <p>我</p>
+                <canvas id="local-visualizer" class="visualizer-canvas" width="200" height="50"></canvas>
+                <div class="audio-controls">
+                    <button id="local-mute-btn" class="mute-btn muted">🎤</button>
+                </div>
+                <audio id="localAudio" autoplay muted></audio>
+            </div>
         </div>
-        
+
         <h2>其他成员</h2>
         <div id="remote-audio-container"></div>
+
+        <div class="chat-container">
+            <h2>聊天室</h2>
+            <div id="chat-messages"></div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="输入消息..." disabled>
+                <button id="send-button" disabled>发送</button>
+            </div>
+        </div>
     </div>
+    <script src="visualizer.js"></script>
     <script src="client.js"></script>
 </body>
 </html>
