@@ -11,43 +11,44 @@ function createVisualizer(stream, canvasElement, volumeCallback) {
     source.connect(analyser);
     // 不连接到 destination，避免回声
 
-    const canvasCtx = canvasElement.getContext('2d');
+    const canvasCtx = canvasElement ? canvasElement.getContext('2d') : null;
     let animationFrameId;
 
-    function draw() {
-        animationFrameId = requestAnimationFrame(draw);
-
+    function processAudio() {
+        animationFrameId = requestAnimationFrame(processAudio);
         analyser.getByteFrequencyData(dataArray);
+        
+        let totalVolume = 0;
+        for (let i = 0; i < bufferLength; i++) {
+            totalVolume += dataArray[i];
+        }
+        const averageVolume = totalVolume / bufferLength;
 
+        if (volumeCallback) {
+            volumeCallback(averageVolume);
+        }
+        
+        // 如果没有 canvas，就不需要绘制
+        if (!canvasCtx) return;
+
+        // --- Canvas 绘制逻辑 ---
         canvasCtx.fillStyle = 'rgb(247, 250, 252)'; // background: #f7fafc
         canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
 
         const barWidth = (canvasElement.width / bufferLength) * 2.5;
         let barHeight;
         let x = 0;
-        let totalVolume = 0;
 
         for (let i = 0; i < bufferLength; i++) {
             barHeight = dataArray[i] / 2;
-            totalVolume += dataArray[i];
-            
-            canvasCtx.fillStyle = `rgb(50, ${barHeight + 100}, 50)`;
             canvasCtx.fillStyle = '#3182ce'; // blue-500
-            
-            // 让条形图从中间向两边扩展
             const y = (canvasElement.height - barHeight) / 2;
             canvasCtx.fillRect(x, y, barWidth, barHeight);
-
             x += barWidth + 1;
-        }
-        
-        if (volumeCallback) {
-            const averageVolume = totalVolume / bufferLength;
-            volumeCallback(averageVolume);
         }
     }
 
-    draw();
+    processAudio();
 
     return {
         stop: () => {

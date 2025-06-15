@@ -3,75 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>多人语音聊天室 (WebRTC Mesh)</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f4f7f9; color: #333; display: flex; justify-content: center; align-items: flex-start; padding: 20px; min-height: 100vh; margin: 0; }
-        .container { width: 100%; max-width: 800px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        h1 { text-align: center; color: #1a202c; margin-top: 0; }
-        .controls { display: flex; gap: 10px; margin-bottom: 20px; }
-        input[type="text"] { flex-grow: 1; padding: 10px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 16px; }
-        button { padding: 10px 20px; border: none; background: #3182ce; color: white; border-radius: 8px; cursor: pointer; font-size: 16px; transition: background-color 0.2s; }
-        button:hover { background: #2b6cb0; }
-        button:disabled { background: #a0aec0; cursor: not-allowed; }
-        #status-bar { text-align: center; margin: 20px 0; padding: 10px; background: #edf2f7; border-radius: 8px; color: #4a5568; }
-        #my-id { font-family: monospace; font-size: 12px; }
-        #remote-audio-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
-        .peer-audio { padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f7fafc; }
-        .peer-audio p { margin: 0 0 10px 0; font-weight: bold; font-size: 14px; word-break: break-all; }
-        .peer-audio audio { width: 100%; display: none; } /* 隐藏原始播放器 */
-        .audio-card { padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f7fafc; display: flex; flex-direction: column; align-items: center; }
-        .audio-card.speaking { border-color: #3182ce; box-shadow: 0 0 8px rgba(49, 130, 206, 0.5); }
-        .audio-card p { margin: 0 0 10px 0; font-weight: bold; font-size: 14px; word-break: break-all; }
-        .visualizer-canvas { width: 100%; height: 50px; background-color: #edf2f7; border-radius: 4px; }
-        .audio-controls { margin-top: 10px; }
-        .mute-btn { background: #718096; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 14px; display: flex; justify-content: center; align-items: center; }
-        .mute-btn.muted { background: #c53030; }
-
-        .stream-box { margin-top: 20px; padding: 15px; background: #e2e8f0; border-radius: 8px; }
-        .chat-container { margin-top: 20px; }
-        #chat-messages { height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: #f7fafc; }
-        .chat-message { margin-bottom: 8px; }
-        .chat-message .peer-id { font-weight: bold; color: #2b6cb0; }
-        .chat-input-area { display: flex; gap: 10px; }
-        #chat-input { flex-grow: 1; }
-    </style>
+    <title>SecureVoice - Discord Style</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <h1>多人语音聊天室</h1>
-        <div class="controls">
-            <input type="text" id="roomNameInput" placeholder="输入房间名">
-            <button id="joinButton">加入房间</button>
-        </div>
-        <div id="status-bar">
-            <strong>状态:</strong> <span id="statusText">未连接</span><br>
-            <small id="my-id"></small>
-        </div>
-        
-        <div class="stream-box">
-            <h3>我的音频</h3>
-            <div id="local-audio-card" class="audio-card">
-                <p>我</p>
-                <canvas id="local-visualizer" class="visualizer-canvas" width="200" height="50"></canvas>
-                <div class="audio-controls">
-                    <button id="local-mute-btn" class="mute-btn muted">🎤</button>
+    <!-- 主应用界面 -->
+    <div class="app-container hidden" id="app">
+        <!-- 左侧边栏 -->
+        <div class="sidebar">
+            <header class="sidebar-header">
+                <h1 id="room-name-display"></h1>
+            </header>
+            <div class="channels">
+                <div class="channel-category">语音频道</div>
+                <div class="user-list" id="user-list-sidebar">
+                    <!-- 用户列表将由 JS 动态添加 -->
                 </div>
-                <audio id="localAudio" autoplay muted></audio>
+            </div>
+            <div class="user-controls">
+                <div class="avatar my-avatar"></div>
+                <div class="user-info">
+                    <div class="username" id="my-peer-id-display">未连接</div>
+                </div>
+                <div class="control-buttons">
+                    <button id="mic-toggle-btn" class="control-button muted">🎤</button>
+                    <!-- 可以添加更多按钮，如耳机、设置 -->
+                </div>
             </div>
         </div>
 
-        <h2>其他成员</h2>
-        <div id="remote-audio-container"></div>
+        <!-- 中间主内容区 -->
+        <div class="main-content">
+            <header class="main-header">
+                <span class="channel-icon">🔊</span>
+                <span id="channel-name-main">通用</span>
+            </header>
+            
+            <audio id="localAudio" muted autoplay playsinline></audio>
 
-        <div class="chat-container">
-            <h2>聊天室</h2>
-            <div id="chat-messages"></div>
-            <div class="chat-input-area">
-                <input type="text" id="chat-input" placeholder="输入消息..." disabled>
-                <button id="send-button" disabled>发送</button>
+            <div id="remote-audio-container">
+                <!-- 远程用户的音频卡片将由 JS 添加 -->
+            </div>
+
+            <div class="chat-area">
+                 <div id="chat-messages"></div>
+                 <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="开始聊天..." disabled>
+                    <button id="send-button" disabled>发送</button> <!-- 在CSS中隐藏，但保留功能 -->
+                 </div>
             </div>
         </div>
     </div>
+
+    <!-- 登录模态框 -->
+    <div class="login-modal-overlay" id="login-modal">
+        <div class="login-modal">
+            <h2>加入语音频道</h2>
+            <p>输入一个房间名来创建或加入一个语音频道。</p>
+            <input type="text" id="roomNameInput" class="login-input" placeholder="例如：游戏开黑">
+            <button id="joinButton">加入</button>
+            <div id="statusText" class="hidden">正在连接...</div>
+        </div>
+    </div>
+
     <script src="visualizer.js"></script>
     <script src="client.js"></script>
 </body>
