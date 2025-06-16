@@ -1,22 +1,32 @@
 :root {
-    --background-primary: #313338; /* 主要背景 */
-    --background-secondary: #2B2D31; /* 次要背景，如侧边栏 */
-    --background-tertiary: #1E1F22; /* 第三层背景，如用户区域 */
+    --background-primary: #36393F; /* 主要背景，深灰 */
+    --background-secondary: #2F3136; /* 次要背景，如侧边栏，稍浅灰 */
+    --background-tertiary: #202225; /* 第三层背景，如用户区域，更深灰 */
+    --background-floating: #18191C; /* 浮动元素背景，如模态框、卡片 */
+
     --header-primary: #FFFFFF; /* 主要标题/文字颜色 */
-    --header-secondary: #B5BAC1; /* 次要文字/图标颜色 */
-    --text-normal: #D4D7DC; /* 普通文本颜色 */
-    --text-muted: #949BA4;  /* 静音/不活动文本颜色 */
-    --interactive-normal: #B5BAC1; /* 默认交互元素颜色 */
-    --interactive-hover: #DCDDDE; /* 悬停时交互元素颜色 */
+    --header-secondary: #B9BBBE; /* 次要文字/图标颜色 */
+    --text-normal: #DCDEE0; /* 普通文本颜色 */
+    --text-muted: #72767D;  /* 静音/不活动文本颜色 */
+
+    --interactive-normal: #B9BBBE; /* 默认交互元素颜色 */
+    --interactive-hover: #DCDEE0; /* 悬停时交互元素颜色 */
     --interactive-active: #FFFFFF; /* 激活时交互元素颜色 */
-    --interactive-muted: #4E5058; /* 禁用/静音交互元素颜色 */
+    --interactive-muted: #4F545C; /* 禁用/静音交互元素颜色 */
+
     --background-modifier-hover: rgba(79,84,92,0.16);
     --background-modifier-active: rgba(79,84,92,0.24);
+
     --channels-default: #8E9297; /* 频道默认颜色 */
+    --brand-color: #5865F2; /* Discord Blurple */
     --green-360: #2DC770; /* 绿色，用于在线/说话状态 */
     --red-400: #F23F42; /* 红色，用于挂断/错误 */
+
     --border-color: #27292D;
-    --input-background: #1E1F22; /* 输入框背景 */
+    --input-background: #202225; /* 输入框背景 */
+
+    --card-border-radius: 8px; /* 卡片圆角 */
+    --button-border-radius: 4px; /* 按钮圆角 */
 }
 
 body {
@@ -74,10 +84,62 @@ body {
     color: var(--channels-default);
 }
 
+@keyframes slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
 .user-list {
     display: flex;
     flex-direction: column;
     gap: 2px;
+}
+
+.sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    animation: slide-in 0.3s ease-out forwards;
+}
+
+.sidebar-user:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.sidebar-user .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--brand-color);
+    flex-shrink: 0;
+    position: relative;
+    border: 2px solid transparent;
+    transition: border-color 0.1s ease-in-out;
+}
+
+.sidebar-user .avatar.speaking {
+    border-color: var(--green-360);
+}
+
+.sidebar-user span {
+    color: var(--text-normal);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-user.me span {
+    color: #FFD700; /* Gold */
 }
 
 /* User Controls (Bottom Left) */
@@ -87,6 +149,68 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    position: relative; /* For potential future absolute positioning of elements */
+}
+
+.user-profile-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-grow: 1;
+    padding: 8px;
+    background-color: var(--background-tertiary);
+    border-radius: var(--card-border-radius);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.user-info {
+    flex-grow: 1;
+    overflow: hidden;
+    display: grid;
+    grid-template-areas:
+        "state"
+        "name"
+        "status";
+    grid-template-rows: auto 1fr auto;
+    align-items: center;
+}
+
+.connection-state {
+    grid-area: state;
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+}
+
+.connection-state.connected {
+    color: var(--green-360);
+}
+
+.user-info .username {
+    grid-area: name;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--header-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.connection-status {
+    grid-area: status;
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    gap: 8px;
+}
+
+
+
+.connection-status span {
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 2px 6px;
+    border-radius: 3px;
 }
 
 .avatar.my-avatar {
@@ -97,41 +221,45 @@ body {
     position: relative;
 }
 
-.user-info {
-    flex-grow: 1;
-    overflow: hidden;
-}
 
-.user-info .username {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--header-primary);
-     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
 
 .control-buttons {
     display: flex;
+    gap: 4px; /* 按钮之间的间距 */
 }
 
 .control-button {
     width: 32px;
     height: 32px;
-    background: transparent;
+    background-color: var(--background-tertiary); /* 按钮背景色 */
     border: none;
     color: var(--interactive-normal);
     cursor: pointer;
-    font-size: 20px;
-    border-radius: 4px;
+    font-size: 18px; /* 调整字体大小 */
+    border-radius: var(--button-border-radius); /* 使用变量 */
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .control-button:hover {
     background-color: var(--background-modifier-hover);
     color: var(--interactive-hover);
+}
+
+.control-button.muted {
+    color: var(--red-400);
+    background-color: var(--background-modifier-active); /* 静音按钮背景色 */
+}
+
+.control-button.muted::after {
+    content: '/';
+    position: absolute;
+    transform: rotate(15deg);
+    font-weight: bold;
+    font-size: 24px;
+    color: var(--red-400); /* 确保斜线颜色与按钮一致 */
 }
 
 .control-button.muted {
@@ -187,15 +315,37 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px;
-    height: 48px;
+    padding: 12px; /* 增加内边距 */
+    background-color: var(--background-secondary); /* 卡片背景色 */
+    border-radius: var(--card-border-radius); /* 圆角 */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); /* 阴影 */
+    transition: transform 0.2s ease; /* 添加过渡效果 */
+    height: auto; /* 允许内容决定高度 */
+}
+
+.audio-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px; /* 增加内边距 */
+    background-color: var(--background-secondary); /* 卡片背景色 */
+    border-radius: var(--card-border-radius); /* 圆角 */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); /* 阴影 */
+    transition: transform 0.2s ease, box-shadow 0.2s ease; /* 添加过渡效果 */
+    height: auto; /* 允许内容决定高度 */
+    animation: slide-in 0.4s ease-out forwards;
+}
+
+.audio-card:hover {
+    transform: translateY(-4px); /* 悬停时轻微上浮 */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* 悬停时阴影更明显 */
 }
 
 .avatar {
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    background-color: #5865f2; /* Discord Blurple */
+    background-color: var(--brand-color); /* 使用品牌颜色变量 */
     flex-shrink: 0;
     position: relative;
     border: 3px solid transparent;
@@ -215,10 +365,33 @@ body {
     white-space: nowrap;
 }
 
+@keyframes new-message-animation {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* Chat Area (Integrated at the bottom of main content for simplicity) */
 .chat-area {
     padding: 0 16px 24px 16px;
     margin-top: auto;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); /* 更平滑的过渡 */
+    max-height: 300px; /* 限制最大高度 */
+}
+
+.chat-area.hidden {
+    opacity: 0;
+    pointer-events: none;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    overflow: hidden;
 }
 #chat-messages {
     height: 150px;
@@ -229,6 +402,7 @@ body {
 .chat-message {
     margin-bottom: 12px;
     line-height: 1.4;
+    animation: new-message-animation 0.3s ease-out forwards;
 }
 .chat-message .timestamp {
     color: var(--text-muted);
@@ -258,6 +432,52 @@ body {
 }
 #send-button {
     display: none; /* We will send on Enter key press */
+}
+
+/* Main Content Footer (Floating Buttons) */
+.main-content-footer {
+    position: sticky; /* 或 fixed，取决于具体布局需求 */
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--background-primary); /* 与主内容区背景一致 */
+    padding: 16px 24px;
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    border-top: 1px solid var(--border-color);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+    z-index: 10; /* 确保在其他内容之上 */
+}
+
+.footer-button {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%; /* 圆形按钮 */
+    background-color: var(--background-tertiary);
+    border: none;
+    color: var(--interactive-normal);
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.footer-button:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--interactive-hover);
+}
+
+.footer-button.disconnect {
+    background-color: var(--red-400);
+    color: white;
+}
+
+.footer-button.disconnect:hover {
+    background-color: #d4373a; /* 红色按钮的深色悬停状态 */
 }
 
 /* Login/Join Modal */

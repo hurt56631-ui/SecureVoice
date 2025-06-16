@@ -12,8 +12,15 @@ const localAudio = document.getElementById('localAudio');
 const remoteAudioContainer = document.getElementById('remote-audio-container');
 const roomNameDisplay = document.getElementById('room-name-display');
 const myPeerIdDisplay = document.getElementById('my-peer-id-display');
-const micToggleButton = document.getElementById('mic-toggle-btn');
+const micToggleButton = document.getElementById('mic-toggle-footer-btn');
 const myAvatar = document.querySelector('.my-avatar');
+const connectionLatencyDisplay = document.getElementById('connection-latency');
+const connectionQualityDisplay = document.getElementById('connection-quality');
+const connectionStateDisplay = document.getElementById('connection-state');
+
+const toggleChatButton = document.getElementById('toggle-chat-btn');
+const disconnectButton = document.getElementById('disconnect-btn');
+const chatArea = document.querySelector('.chat-area');
 
 const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
@@ -90,8 +97,20 @@ micToggleButton.onclick = () => {
     if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         micToggleButton.classList.toggle('muted', !audioTrack.enabled);
-        micToggleButton.textContent = audioTrack.enabled ? '🎤' : '🎤';
+        micToggleButton.textContent = audioTrack.enabled ? '🎤' : '🔇';
     }
+};
+
+toggleChatButton.onclick = () => {
+    chatArea.classList.toggle('hidden');
+};
+
+disconnectButton.onclick = () => {
+    // 断开连接
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close();
+    }
+    cleanup();
 };
 
 
@@ -117,6 +136,14 @@ function setupWebSocketListeners(roomName, username) { // 接收用户名
                 roomNameDisplay.textContent = roomName;
                 loginModal.classList.add('hidden');
                 appContainer.classList.remove('hidden');
+                connectionStateDisplay.textContent = 'Voice Connected';
+                connectionStateDisplay.classList.add('connected');
+
+                // 模拟更新连接延迟和质量
+                setInterval(updateConnectionStats, 5000);
+
+                // 将自己添加到侧边栏
+                addSidebarUser(myPeerId, username);
 
                 // 为每个已存在的 peer 创建连接并发送 offer
                 if (Array.isArray(data.peers)) { // data.peers 现在包含 { peerId, username }
@@ -408,6 +435,10 @@ function addSidebarUser(peerId, username) {
         userElement.id = `sidebar-user-${peerId}`;
         userElement.className = 'sidebar-user';
 
+        if (peerId === myPeerId) {
+            userElement.classList.add('me');
+        }
+
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
 
@@ -452,4 +483,56 @@ function cleanup() {
     sendButton.disabled = true;
     micToggleButton.classList.add('muted');
     peerIdToUsernameMap.clear(); // 清除映射
+    connectionLatencyDisplay.textContent = 'Ping: --ms';
+    connectionQualityDisplay.textContent = 'Quality: --';
+    connectionStateDisplay.textContent = 'Connecting';
+    connectionStateDisplay.classList.remove('connected');
+    chatArea.classList.remove('hidden'); // 确保聊天区域在清理后可见
+}
+
+async function updateConnectionStats() {
+    if (peerConnections.size === 0) {
+        connectionLatencyDisplay.textContent = `Ping: --ms`;
+        connectionQualityDisplay.textContent = `Quality: --`;
+        return;
+    }
+
+    let totalRoundTripTime = 0;
+    let connectedPeers = 0;
+
+    for (const pc of peerConnections.values()) {
+        if (pc.connectionState !== 'connected') continue;
+
+        try {
+            const stats = await pc.getStats();
+            stats.forEach(report => {
+                // 寻找已成功的 ICE candidate pair
+                if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                    // currentRoundTripTime 是秒，需要乘以 1000 得到毫秒
+                    if (report.currentRoundTripTime) {
+                        totalRoundTripTime += report.currentRoundTripTime * 1000;
+                        connectedPeers++;
+                    }
+                }
+            });
+        } catch (error) {
+            console.error("获取 WebRTC 统计信息失败:", error);
+        }
+    }
+
+    if (connectedPeers > 0) {
+        const averageLatency = Math.round(totalRoundTripTime / connectedPeers);
+        let quality = '良好';
+        if (averageLatency > 150) {
+            quality = '一般';
+        }
+        if (averageLatency > 250) {
+            quality = '差';
+        }
+        connectionLatencyDisplay.textContent = `Ping: ${averageLatency}ms`;
+        connectionQualityDisplay.textContent = `Quality: ${quality}`;
+    } else {
+        connectionLatencyDisplay.textContent = `Ping: --ms`;
+        connectionQualityDisplay.textContent = `Quality: --`;
+    }
 }

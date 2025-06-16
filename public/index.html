@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SecureVoice - Discord Style</title>
+    <title>SecureVoice</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,13 +24,16 @@
                 </div>
             </div>
             <div class="user-controls">
-                <div class="avatar my-avatar"></div>
-                <div class="user-info">
-                    <div class="username" id="my-peer-id-display">未连接</div>
-                </div>
-                <div class="control-buttons">
-                    <button id="mic-toggle-btn" class="control-button muted">🎤</button>
-                    <!-- 可以添加更多按钮，如耳机、设置 -->
+                <div class="user-profile-card">
+                    <div class="avatar my-avatar"></div>
+                    <div class="user-info">
+                        <div class="connection-state" id="connection-state">Connecting</div>
+                        <div class="username" id="my-peer-id-display">未连接</div>
+                        <div class="connection-status">
+                            <span id="connection-latency">Ping: --ms</span>
+                            <span id="connection-quality">Quality: --</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -54,6 +57,13 @@
                     <input type="text" id="chat-input" placeholder="开始聊天..." disabled>
                     <button id="send-button" disabled>发送</button> <!-- 在CSS中隐藏，但保留功能 -->
                  </div>
+            </div>
+
+            <!-- 中间内容区底部悬浮按钮 -->
+            <div class="main-content-footer">
+                <button id="mic-toggle-footer-btn" class="footer-button">🎤</button>
+                <button id="toggle-chat-btn" class="footer-button">💬</button>
+                <button id="disconnect-btn" class="footer-button disconnect">📞</button>
             </div>
         </div>
     </div>
