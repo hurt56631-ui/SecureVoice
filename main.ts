@@ -3,8 +3,8 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { serveDir } from "https://deno.land/std@0.224.0/http/file_server.ts";
 
-// 房间数据结构: Map<roomName, Map<peerId, WebSocket>>
-const rooms = new Map<string, Map<string, WebSocket>>();
+// 房间数据结构: Map<roomName, Map<peerId, { socket: WebSocket, username: string }>>
+const rooms = new Map<string, Map<string, { socket: WebSocket, username: string }>>();
 
 const handler = (req: Request): Response => {
   const url = new URL(req.url);
@@ -18,7 +18,7 @@ const handler = (req: Request): Response => {
     // 1. 连接建立
     socket.onopen = () => {
       console.log(`[+] Peer connected: ${peerId}`);
-      // 连接后立即发送 peerId 给客户端
+      // 连接后立即发送 peerId 给客户端 (不包含现有peer信息，这将在join-room时发送)
       socket.send(JSON.stringify({ type: 'your-id', data: { peerId } }));
     };
 
@@ -33,27 +33,37 @@ const handler = (req: Request): Response => {
 
         switch (type) {
           case 'join-room': {
+            const { username } = data; // 获取用户名
             userRoom = roomName;
             if (!rooms.has(roomName)) {
               rooms.set(roomName, new Map());
             }
             const room = rooms.get(roomName)!;
 
-            // a. 告知新用户，房间里已有哪些人
-            const existingPeers = Array.from(room.keys());
-            socket.send(JSON.stringify({ type: 'existing-peers', data: { peerIds: existingPeers } }));
+            // 检查用户名是否重复
+            const isUsernameTaken = Array.from(room.values()).some(peerInfo => peerInfo.username === username);
+            if (isUsernameTaken) {
+              console.log(`[${roomName}] Username ${username} is already taken. Rejecting peer ${peerId}.`);
+              socket.send(JSON.stringify({ type: 'username-taken', data: { username } }));
+              socket.close(1008, 'Username taken'); // 1008: Policy Violation
+              return; // 终止处理，不加入房间
+            }
 
-            // b. 将新用户加入房间
-            room.set(peerId, socket);
+            // a. 告知新用户，房间里已有哪些人 (包含用户名)
+            const existingPeers = Array.from(room.entries()).map(([id, { username }]) => ({ peerId: id, username }));
+            socket.send(JSON.stringify({ type: 'your-id', data: { peerId, peers: existingPeers } })); // 修改为 peers
+
+            // b. 将新用户加入房间 (存储 socket 和 username)
+            room.set(peerId, { socket, username });
             
-            // c. 告知房间里其他人，有新人加入
-            room.forEach((peerSocket, id) => {
+            // c. 告知房间里其他人，有新人加入 (包含用户名)
+            room.forEach((peerInfo, id) => {
               if (id !== peerId) {
-                peerSocket.send(JSON.stringify({ type: 'new-peer', data: { peerId } }));
+                peerInfo.socket.send(JSON.stringify({ type: 'new-peer', data: { peerId, username } }));
               }
             });
 
-            console.log(`[${roomName}] Peer ${peerId} joined. Total: ${room.size}`);
+            console.log(`[${roomName}] Peer ${username} (${peerId}) joined. Total: ${room.size}`);
             break;
           }
 
@@ -62,23 +72,25 @@ const handler = (req: Request): Response => {
           case 'answer':
           case 'ice-candidate': {
             const room = rooms.get(roomName);
-            const targetSocket = room?.get(data.target);
-            if (targetSocket) {
-              // 附加上发送者的 ID
-              targetSocket.send(JSON.stringify({ type, data: { ...data, sender: peerId } }));
+            const senderUsername = room?.get(peerId)?.username; // 获取发送者的用户名
+            const targetPeerInfo = room?.get(data.target);
+            if (targetPeerInfo) {
+              // 附加上发送者的 ID 和用户名
+              targetPeerInfo.socket.send(JSON.stringify({ type, data: { ...data, senderId: peerId, senderUsername } }));
             }
             break;
           }
           
           case 'chat-message': {
             const room = rooms.get(roomName);
-            if (room) {
+            const senderUsername = room?.get(peerId)?.username; // 获取发送者的用户名
+            if (room && senderUsername) {
               // 广播消息给房间内所有其他人
-              room.forEach((peerSocket, id) => {
+              room.forEach((peerInfo, id) => {
                 if (id !== peerId) {
-                  peerSocket.send(JSON.stringify({
+                  peerInfo.socket.send(JSON.stringify({
                     type: 'chat-message',
-                    data: { sender: peerId, message: data.message }
+                    data: { senderId: peerId, senderUsername, message: data.message }
                   }));
                 }
               });
@@ -96,12 +108,13 @@ const handler = (req: Request): Response => {
       console.log(`[-] Peer disconnected: ${peerId}`);
       if (userRoom) {
         const room = rooms.get(userRoom);
-        if (room?.has(peerId)) {
+        const disconnectedPeerInfo = room?.get(peerId);
+        if (room && disconnectedPeerInfo) {
           room.delete(peerId);
-          console.log(`[${userRoom}] Peer ${peerId} removed. Total: ${room.size}`);
-          // 告知房间里剩下的人，有人已离开
-          room.forEach((peerSocket) => {
-            peerSocket.send(JSON.stringify({ type: 'peer-disconnected', data: { peerId } }));
+          console.log(`[${userRoom}] Peer ${disconnectedPeerInfo.username} (${peerId}) removed. Total: ${room.size}`);
+          // 告知房间里剩下的人，有人已离开 (包含用户名)
+          room.forEach((peerInfo) => {
+            peerInfo.socket.send(JSON.stringify({ type: 'peer-disconnected', data: { peerId, username: disconnectedPeerInfo.username } }));
           });
         }
       }

@@ -4,8 +4,8 @@ It handles user interface interactions, obtains local audio streams, establishes
 
 ## DOM Elements
 *   **`joinButton`**: Button to initiate joining a room.
+*   **`usernameInput`**: Input field for entering the username.
 *   **`roomNameInput`**: Input field for entering the room name.
-*   **`localAudio`**: HTML `<audio>` element to play back the local audio stream.
 *   **`remoteAudioContainer`**: Container `<div>` where remote audio streams will be added.
 *   **`statusText`**: `<p>` element to display status messages to the user.
 *   **`myIdSpan`**: `<span>` element to display the client's own peer ID.
@@ -18,18 +18,19 @@ It handles user interface interactions, obtains local audio streams, establishes
 *   **`myPeerId`**: Stores the unique ID assigned to this client by the signaling server.
 *   **`socket`**: The `WebSocket` object used for communication with the signaling server.
 *   **`peerConnections`**: A `Map` to store `RTCPeerConnection` objects, keyed by the remote peer's ID.
+*   **`peerIdToUsernameMap`**: A `Map` to store the mapping from peer ID to username.
 *   **`stunServers`**: Configuration object for STUN servers, used by `RTCPeerConnection` to discover public IP addresses and NAT traversal.
 
 ## Main Flow
 *   **`joinButton.onclick`**:
     *   Triggered when the user clicks the "Join" button.
-    *   Validates the room name input.
+    *   Validates both the username and room name inputs.
     *   Disables UI elements to prevent multiple clicks.
     *   Attempts to get the user's microphone access using `navigator.mediaDevices.getUserMedia({ audio: true, video: false })`.
     *   Sets the obtained `localStream` to the `localAudio` element.
     *   Establishes a WebSocket connection to the signaling server (`/ws` endpoint).
-    *   Calls `setupWebSocketListeners` to configure WebSocket event handlers.
-    *   Includes error handling for media device access and WebSocket connection.
+    *   Calls `setupWebSocketListeners` to configure WebSocket event handlers, passing the entered username.
+    *   Includes error handling for media device access and WebSocket connection, re-enabling username input on error.
 
 ## WebSocket Event Handling (`setupWebSocketListeners` function)
 *   **`socket.onopen`**:
@@ -37,14 +38,14 @@ It handles user interface interactions, obtains local audio streams, establishes
 *   **`socket.onmessage(event)`**:
     *   Parses incoming JSON messages from the server.
     *   Uses a `switch` statement to handle different message types:
-        *   **`your-id`**: Receives the `myPeerId` from the server and displays it. After receiving the ID, it sends a `join-room` message to the server.
-        *   **`existing-peers`**: Receives a list of `peerIds` already in the room. For each existing peer, it calls `createAndSendOffer` to initiate a WebRTC connection. It also enables the chat input and send button, and calls `setupChat`.
-        *   **`new-peer`**: Logs a message when a new peer joins the room and adds a system message to the chat.
-        *   **`offer`**: Calls `handleOffer` to process an incoming WebRTC offer.
+        *   **`your-id`**: Receives the `myPeerId` from the server and displays the user's chosen username. Sends a `join-room` message to the server, including the username. Processes a list of existing peers (now including their usernames), initiating WebRTC connections and adding them to the sidebar.
+        *   **`existing-peers`**: (This case is now integrated into `your-id` handling, receiving `data.peers` with usernames).
+        *   **`new-peer`**: Logs a message when a new peer joins the room, adds a system message to the chat using the new peer's username, initiates a WebRTC connection, and adds the new user to the sidebar.
+        *   **`offer`**: Calls `handleOffer` to process an incoming WebRTC offer, also receiving and storing the sender's username.
         *   **`answer`**: Calls `handleAnswer` to process an incoming WebRTC answer.
         *   **`ice-candidate`**: Calls `handleIceCandidate` to process an incoming ICE candidate.
-        *   **`chat-message`**: Calls `addChatMessage` to display a received chat message from another peer.
-        *   **`peer-disconnected`**: Calls `handlePeerDisconnect` when a peer leaves the room and adds a system message to the chat.
+        *   **`chat-message`**: Calls `addChatMessage` to display a received chat message from another peer, using the sender's username.
+        *   **`peer-disconnected`**: Calls `handlePeerDisconnect` when a peer leaves the room and adds a system message to the chat, using the disconnected peer's username.
 *   **`socket.onclose`**:
     *   Updates the status to "连接已断开" (Connection disconnected).
     *   Calls `cleanup` to reset the application state.
@@ -66,7 +67,8 @@ It handles user interface interactions, obtains local audio streams, establishes
     *   Creates a WebRTC offer (`pc.createOffer()`).
     *   Sets the local description (`pc.setLocalDescription()`).
     *   Sends the offer (SDP) to the signaling server.
-*   **`handleOffer(sdp, senderId)`**:
+*   **`handleOffer(sdp, senderId, senderUsername)`**:
+    *   Stores the `senderId` to `senderUsername` mapping in `peerIdToUsernameMap`.
     *   Creates an `RTCPeerConnection` for the `senderId`.
     *   Sets the remote description with the received SDP offer.
     *   Creates a WebRTC answer (`pc.createAnswer()`).
@@ -87,27 +89,28 @@ It handles user interface interactions, obtains local audio streams, establishes
     *   Sets up event listeners for the chat send button (`onclick`) and input field (`onkeydown` for 'Enter' key).
 *   **`sendMessage()`**:
     *   Reads the message from the `chatInput`.
-    *   Sends the message to the server via WebSocket with the type `chat-message`.
+    *   Sends the message to the server via WebSocket with the type `chat-message`, including the local user's username.
     *   Calls `addChatMessage` to display the sent message locally.
     *   Clears the chat input field.
-*   **`addChatMessage(sender, message)`**:
+*   **`addChatMessage(sender, message, isMe)`**:
     *   Creates new DOM elements for the message.
     *   Appends the formatted message (sender + message) to the `chatMessages` container.
     *   Automatically scrolls the chat view to the bottom.
+*   **`addSidebarUser(peerId, username)`**:
+    *   Creates and appends a new user element to the `user-list-sidebar` for a given peer, displaying their username.
 
 ## UI & Utility Functions
 *   **`addRemoteAudioStream(peerId, stream)`**:
     *   Creates a new `<div>` element for the remote peer's audio.
-    *   Creates an `<p>` element for the peer's ID and an `<audio>` element for the stream.
+    *   Creates an `<p>` element for the peer's username (retrieved from `peerIdToUsernameMap`) and an `<audio>` element for the stream.
     *   Sets the `srcObject` of the audio element to the remote stream and enables autoplay.
     *   Appends the new elements to the `remoteAudioContainer`.
-*   **`updateStatus(message, isError = false)`**:
+*   **`updateStatus(message)`**:
     *   Updates the `statusText` element with the given message.
-    *   Changes the text color based on whether it's an error message.
 *   **`cleanup()`**:
     *   Closes all active `RTCPeerConnection`s.
     *   Clears the `peerConnections` Map.
     *   Clears the `remoteAudioContainer` and `chatMessages`.
     *   Stops local media tracks and resets `localAudio.srcObject`.
-    *   Re-enables the "Join" button and room name input, and disables chat controls.
-    *   Clears the `myIdSpan` text.
+    *   Re-enables the "Join" button, room name input, and username input, and disables chat controls.
+    *   Clears the `myPeerIdDisplay` text and the `peerIdToUsernameMap`.

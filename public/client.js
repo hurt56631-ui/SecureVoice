@@ -4,6 +4,7 @@
 const loginModal = document.getElementById('login-modal');
 const appContainer = document.getElementById('app');
 const joinButton = document.getElementById('joinButton');
+const usernameInput = document.getElementById('usernameInput'); // 新增
 const roomNameInput = document.getElementById('roomNameInput');
 const statusText = document.getElementById('statusText');
 
@@ -35,11 +36,18 @@ const stunServers = {
 // --- 主流程 ---
 
 joinButton.onclick = async () => {
+    const username = usernameInput.value.trim(); // 获取用户名
     const roomName = roomNameInput.value.trim();
+    if (!username) { // 验证用户名
+        alert('请输入您的用户名');
+        return;
+    }
     if (!roomName) {
         alert('请输入房间名');
         return;
     }
+
+    usernameInput.disabled = true; // 禁用用户名输入框
 
     joinButton.disabled = true;
     roomNameInput.disabled = true;
@@ -47,7 +55,15 @@ joinButton.onclick = async () => {
     statusText.classList.remove('hidden');
 
     try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const audioConstraints = {
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            },
+            video: false
+        };
+        localStream = await navigator.mediaDevices.getUserMedia(audioConstraints);
         localAudio.srcObject = localStream;
         
         // 设置本地音频可视化
@@ -57,13 +73,14 @@ joinButton.onclick = async () => {
 
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         socket = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
-        setupWebSocketListeners(roomName);
+        setupWebSocketListeners(roomName, username); // 传递用户名
 
     } catch (error) {
         console.error('获取媒体设备失败:', error);
         statusText.textContent = '无法访问麦克风。请检查权限。';
         joinButton.disabled = false;
         roomNameInput.disabled = false;
+        usernameInput.disabled = false; // 重新启用用户名输入框
     }
 };
 
@@ -80,9 +97,11 @@ micToggleButton.onclick = () => {
 
 // --- WebSocket 事件处理 ---
 
-function setupWebSocketListeners(roomName) {
+function setupWebSocketListeners(roomName, username) { // 接收用户名
     socket.onopen = () => {
         statusText.textContent = '正在加入房间...';
+        // 在连接打开时发送 join-room 消息，包含用户名
+        socket.send(JSON.stringify({ type: 'join-room', data: { roomName, username } }));
     };
 
     socket.onmessage = (event) => {
@@ -92,17 +111,19 @@ function setupWebSocketListeners(roomName) {
         switch (type) {
             case 'your-id':
                 myPeerId = data.peerId;
-                myPeerIdDisplay.textContent = `ID: ${myPeerId.substring(0, 8)}`;
-                socket.send(JSON.stringify({ type: 'join-room', data: { roomName } }));
+                // myPeerIdDisplay.textContent = `ID: ${myPeerId.substring(0, 8)}`; // 不再显示ID
+                myPeerIdDisplay.textContent = username; // 显示用户名
                 updateStatus(`成功加入房间: ${roomName}`);
                 roomNameDisplay.textContent = roomName;
                 loginModal.classList.add('hidden');
                 appContainer.classList.remove('hidden');
 
                 // 为每个已存在的 peer 创建连接并发送 offer
-                if (Array.isArray(data.peerIds)) {
-                    data.peerIds.forEach(peerId => {
-                        createAndSendOffer(peerId);
+                if (Array.isArray(data.peers)) { // data.peers 现在包含 { peerId, username }
+                    data.peers.forEach(peer => {
+                        createAndSendOffer(peer.peerId);
+                        // 在侧边栏添加已存在的用户
+                        addSidebarUser(peer.peerId, peer.username);
                     });
                 }
                 chatInput.disabled = false;
@@ -110,26 +131,28 @@ function setupWebSocketListeners(roomName) {
                 setupChat();
                 break;
             case 'new-peer':
-                console.log(`新成员加入: ${data.peerId}`);
-                addChatMessage('系统', `成员 ${data.peerId.substring(0, 8)}... 加入了频道。`);
+                console.log(`新成员加入: ${data.peerId} (${data.username})`);
+                addChatMessage('系统', `成员 ${data.username} 加入了频道。`);
                 // 主动向新成员发起连接
                 createAndSendOffer(data.peerId);
+                // 在侧边栏添加新用户
+                addSidebarUser(data.peerId, data.username);
                 break;
             case 'offer':
-                handleOffer(data.sdp, data.sender);
+                handleOffer(data.sdp, data.senderId, data.senderUsername); // 传递用户名
                 break;
             case 'answer':
-                handleAnswer(data.sdp, data.sender);
+                handleAnswer(data.sdp, data.senderId);
                 break;
             case 'ice-candidate':
-                handleIceCandidate(data.candidate, data.sender);
+                handleIceCandidate(data.candidate, data.senderId);
                 break;
             case 'chat-message':
-                addChatMessage(data.sender.substring(0, 8) + '...', data.message, false);
+                addChatMessage(data.senderUsername, data.message, false); // 使用用户名
                 break;
             case 'peer-disconnected':
                 handlePeerDisconnect(data.peerId);
-                addChatMessage('系统', `成员 ${data.peerId.substring(0, 8)}... 离开了频道。`);
+                addChatMessage('系统', `成员 ${data.username} 离开了频道。`); // 使用用户名
                 break;
         }
     };
@@ -195,8 +218,12 @@ async function createAndSendOffer(peerId) {
         data: { target: peerId, sdp: pc.localDescription }
     }));
 }
+ 
+// 存储 peerId 到 username 的映射
+const peerIdToUsernameMap = new Map();
 
-async function handleOffer(sdp, senderId) {
+async function handleOffer(sdp, senderId, senderUsername) { // 接收用户名
+    peerIdToUsernameMap.set(senderId, senderUsername); // 存储映射
     const pc = createPeerConnection(senderId);
     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
     const answer = await pc.createAnswer();
@@ -270,7 +297,7 @@ function sendMessage() {
     if (message && socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({
             type: 'chat-message',
-            data: { message }
+            data: { message, senderUsername: myPeerIdDisplay.textContent } // 发送用户名
         }));
         addChatMessage('我', message, true);
         chatInput.value = '';
@@ -347,7 +374,7 @@ function addRemoteAudioStream(peerId, stream) {
 
         const peerInfo = document.createElement('div');
         peerInfo.className = 'peer-info';
-        peerInfo.textContent = `ID: ${peerId.substring(0, 8)}`;
+        peerInfo.textContent = peerIdToUsernameMap.get(peerId) || `ID: ${peerId.substring(0, 8)}`; // 显示用户名
         
         card.appendChild(avatar);
         card.appendChild(peerInfo);
@@ -367,8 +394,11 @@ function addRemoteAudioStream(peerId, stream) {
         });
         visualizers.set(peerId, visualizer);
     }
+    // 侧边栏用户列表项的添加现在由 `addSidebarUser` 函数处理
+}
 
-    // --- 2. 在左侧边栏创建用户列表项 ---
+// 新增函数：在侧边栏添加用户
+function addSidebarUser(peerId, username) {
     if (!document.getElementById(`sidebar-user-${peerId}`)) {
         const userElement = document.createElement('div');
         userElement.id = `sidebar-user-${peerId}`;
@@ -377,11 +407,11 @@ function addRemoteAudioStream(peerId, stream) {
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
 
-        const username = document.createElement('span');
-        username.textContent = `User-${peerId.substring(0, 4)}`;
+        const usernameSpan = document.createElement('span');
+        usernameSpan.textContent = username; // 显示用户名
 
         userElement.appendChild(avatar);
-        userElement.appendChild(username);
+        userElement.appendChild(usernameSpan);
         userListSidebar.appendChild(userElement);
     }
 }
@@ -405,7 +435,9 @@ function cleanup() {
 
     joinButton.disabled = false;
     roomNameInput.disabled = false;
+    usernameInput.disabled = false; // 重新启用用户名输入框
     roomNameInput.value = '';
+    usernameInput.value = ''; // 清空用户名输入框
     statusText.textContent = '';
     statusText.classList.add('hidden');
 
@@ -415,4 +447,5 @@ function cleanup() {
     chatInput.disabled = true;
     sendButton.disabled = true;
     micToggleButton.classList.add('muted');
+    peerIdToUsernameMap.clear(); // 清除映射
 }
