@@ -28,6 +28,7 @@ The WebSocket connection lifecycle is managed through `socket.onopen`, `socket.o
         *   **`join-room`**:
             *   Receives `roomName` and `username` from the client.
             *   Sets the `userRoom` for the current peer.
+            *   Checks if the `username` is already taken in the room. If so, it sends a `username-taken` message to the client and closes the WebSocket connection.
             *   If the room doesn't exist, it creates a new entry in the `rooms` Map.
             *   Informs the newly joined peer about existing peers in the room, including their `peerId` and `username`.
             *   Adds the new peer's `WebSocket` and `username` to the room.

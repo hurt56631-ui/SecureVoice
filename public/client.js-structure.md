@@ -46,6 +46,7 @@ It handles user interface interactions, obtains local audio streams, establishes
         *   **`ice-candidate`**: Calls `handleIceCandidate` to process an incoming ICE candidate.
         *   **`chat-message`**: Calls `addChatMessage` to display a received chat message from another peer, using the sender's username.
         *   **`peer-disconnected`**: Calls `handlePeerDisconnect` when a peer leaves the room and adds a system message to the chat, using the disconnected peer's username.
+        *   **`username-taken`**: Displays an alert to the user indicating that the chosen username is already taken, and then calls `cleanup()` to reset the application state, allowing the user to try again with a different username.
 *   **`socket.onclose`**:
     *   Updates the status to "连接已断开" (Connection disconnected).
     *   Calls `cleanup` to reset the application state.

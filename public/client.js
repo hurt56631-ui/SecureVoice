@@ -154,6 +154,10 @@ function setupWebSocketListeners(roomName, username) { // 接收用户名
                 handlePeerDisconnect(data.peerId);
                 addChatMessage('系统', `成员 ${data.username} 离开了频道。`); // 使用用户名
                 break;
+            case 'username-taken': // 新增：处理用户名重复
+                alert(`用户名 "${data.username}" 已被占用，请选择其他用户名。`);
+                cleanup(); // 清理并重新启用输入
+                break;
         }
     };
 
