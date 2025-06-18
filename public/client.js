@@ -27,6 +27,13 @@ const chatInput = document.getElementById('chat-input');
 const sendButton = document.getElementById('send-button');
 const userListSidebar = document.getElementById('user-list-sidebar');
 
+// 服务器选择相关元素
+const serverSelect = document.getElementById('serverSelect');
+const serverInfoBtn = document.getElementById('serverInfoBtn');
+const serverInfoModal = document.getElementById('server-info-modal');
+const closeServerInfoBtn = document.getElementById('closeServerInfoBtn');
+const serverInfoContent = document.getElementById('serverInfoContent');
+
 // --- WebRTC & WebSocket 全局变量 ---
 let localStream;
 let myPeerId;
@@ -34,14 +41,56 @@ let socket;
 const peerConnections = new Map();
 const visualizers = new Map(); // 存储 visualizer 实例
 const pendingIceCandidates = new Map(); // 存储待处理的ICE候选
-const stunServers = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' }
-    ]
+// 服务器配置
+const serverConfigs = {
+    'china-optimized': {
+        name: '中国优化',
+        description: '针对中国大陆网络环境优化的STUN服务器',
+        iceServers: [
+            { urls: 'stun:stun.voipbuster.com:3478' },
+            { urls: 'stun:stun.wirlab.net:3478' },
+            { urls: 'stun:stun.ekiga.net:3478' },
+            { urls: 'stun:stun.ideasip.com:3478' },
+            { urls: 'stun:stun.voiparound.com:3478' },
+            { urls: 'stun:stun.counterpath.com:3478' }
+        ]
+    },
+    'global-standard': {
+        name: '全球标准',
+        description: '使用Google等全球标准STUN服务器',
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' }
+        ]
+    },
+    'turn-enabled': {
+        name: 'TURN增强',
+        description: '包含TURN服务器，适用于严格NAT环境',
+        iceServers: [
+            { urls: 'stun:stun.voipbuster.com:3478' },
+            { urls: 'stun:stun.wirlab.net:3478' },
+            {
+                urls: 'turn:relay1.expressturn.com:3480',
+                username: '000000002065629175',
+                credential: 'i5d1YIapn3pSTo27j0FlbFm6C0w='
+            },
+            { urls: 'stun:stun.l.google.com:19302' }
+        ]
+    },
+    'custom': {
+        name: '自定义配置',
+        description: '可自定义的服务器配置',
+        iceServers: [
+            { urls: 'stun:stun.voipbuster.com:3478' }
+        ]
+    }
 };
+
+// 当前选择的服务器配置
+let currentServerConfig = serverConfigs['china-optimized'];
 
 // --- 主流程 ---
 
@@ -117,6 +166,30 @@ disconnectButton.onclick = () => {
         socket.close();
     }
     cleanup();
+};
+
+// 服务器选择事件
+serverSelect.onchange = () => {
+    const selectedConfig = serverSelect.value;
+    currentServerConfig = serverConfigs[selectedConfig];
+    console.log(`切换到服务器配置: ${currentServerConfig.name}`);
+};
+
+// 服务器信息按钮
+serverInfoBtn.onclick = () => {
+    showServerInfo();
+};
+
+// 关闭服务器信息模态框
+closeServerInfoBtn.onclick = () => {
+    serverInfoModal.classList.add('hidden');
+};
+
+// 点击模态框外部关闭
+serverInfoModal.onclick = (e) => {
+    if (e.target === serverInfoModal) {
+        serverInfoModal.classList.add('hidden');
+    }
 };
 
 
@@ -216,8 +289,8 @@ function createPeerConnection(peerId) {
         return peerConnections.get(peerId);
     }
 
-    console.log(`创建与 ${peerId} 的 PeerConnection`);
-    const pc = new RTCPeerConnection(stunServers);
+    console.log(`创建与 ${peerId} 的 PeerConnection，使用配置: ${currentServerConfig.name}`);
+    const pc = new RTCPeerConnection(currentServerConfig);
     peerConnections.set(peerId, pc);
 
     // 初始化待处理的ICE候选队列
@@ -891,4 +964,56 @@ async function updateConnectionStats() {
         connectionLatencyDisplay.textContent = `Ping: --ms`;
         connectionQualityDisplay.textContent = `Quality: --`;
     }
+}
+
+// 显示服务器信息
+function showServerInfo() {
+    const serverInfoHTML = `
+        <div class="server-group">
+            <h4><i class="fas fa-globe-asia"></i> 中国优化节点</h4>
+            <p>针对中国大陆网络环境优化，使用国内可访问的STUN服务器</p>
+            <ul class="server-list">
+                <li><span class="server-name">stun.voipbuster.com</span><span class="server-location">欧洲</span></li>
+                <li><span class="server-name">stun.wirlab.net</span><span class="server-location">亚洲</span></li>
+                <li><span class="server-name">stun.ekiga.net</span><span class="server-location">全球</span></li>
+                <li><span class="server-name">stun.ideasip.com</span><span class="server-location">美国</span></li>
+            </ul>
+        </div>
+
+        <div class="server-group">
+            <h4><i class="fas fa-globe"></i> 全球标准节点</h4>
+            <p>使用Google等全球标准STUN服务器，适合海外用户</p>
+            <ul class="server-list">
+                <li><span class="server-name">stun.l.google.com</span><span class="server-location">全球</span></li>
+                <li><span class="server-name">stun1.l.google.com</span><span class="server-location">全球</span></li>
+                <li><span class="server-name">stun2.l.google.com</span><span class="server-location">全球</span></li>
+            </ul>
+        </div>
+
+        <div class="server-group">
+            <h4><i class="fas fa-shield-alt"></i> TURN增强节点</h4>
+            <p>包含TURN服务器，适用于严格NAT环境和企业网络</p>
+            <ul class="server-list">
+                <li><span class="server-name">relay1.expressturn.com</span><span class="server-location">TURN服务</span></li>
+                <li><span class="server-name">stun.voipbuster.com</span><span class="server-location">STUN备用</span></li>
+            </ul>
+            <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">
+                <i class="fas fa-info-circle"></i>
+                TURN服务器可以在STUN无法穿透NAT时提供中继服务，确保连接成功率
+            </p>
+        </div>
+
+        <div class="server-group">
+            <h4><i class="fas fa-cog"></i> 连接建议</h4>
+            <ul style="list-style: disc; padding-left: 20px; margin: 8px 0;">
+                <li><strong>中国大陆用户</strong>：推荐使用"中国优化"节点</li>
+                <li><strong>海外用户</strong>：推荐使用"全球标准"节点</li>
+                <li><strong>企业网络</strong>：如果连接失败，尝试"TURN增强"节点</li>
+                <li><strong>连接问题</strong>：可尝试切换不同节点解决</li>
+            </ul>
+        </div>
+    `;
+
+    serverInfoContent.innerHTML = serverInfoHTML;
+    serverInfoModal.classList.remove('hidden');
 }

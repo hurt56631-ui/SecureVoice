@@ -864,6 +864,70 @@ body::before {
     color: var(--brand-color);
 }
 
+/* 服务器选择样式 */
+.server-selection {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.server-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--header-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    min-width: 80px;
+}
+
+.server-select {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid var(--border-color);
+    background-color: var(--input-background);
+    color: var(--text-normal);
+    border-radius: var(--button-border-radius);
+    font-size: 14px;
+    transition: all 0.3s ease;
+    outline: none;
+    cursor: pointer;
+}
+
+.server-select:focus {
+    border-color: var(--brand-color);
+    box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.1);
+}
+
+.server-select option {
+    background-color: var(--input-background);
+    color: var(--text-normal);
+    padding: 8px;
+}
+
+.server-info-btn {
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--border-color);
+    background: transparent;
+    color: var(--header-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    font-size: 14px;
+}
+
+.server-info-btn:hover {
+    border-color: var(--brand-color);
+    color: var(--brand-color);
+    background: rgba(88, 101, 242, 0.1);
+    transform: scale(1.05);
+}
+
 #joinButton {
     width: 100%;
     padding: 16px;
@@ -937,6 +1001,127 @@ body::before {
         opacity: 1;
         transform: translateY(0) scale(1);
     }
+}
+
+/* 服务器信息模态框 */
+.server-info-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 200;
+    backdrop-filter: blur(5px);
+    animation: fadeIn 0.3s ease-out;
+}
+
+.server-info-modal {
+    background: linear-gradient(135deg, var(--background-secondary) 0%, var(--background-tertiary) 100%);
+    padding: 24px;
+    border-radius: var(--card-border-radius);
+    width: 600px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-large);
+    border: 1px solid var(--border-color);
+    position: relative;
+    animation: slideUp 0.4s ease-out;
+}
+
+.server-info-modal .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.server-info-modal h3 {
+    color: var(--header-primary);
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.close-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: var(--header-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    font-size: 16px;
+}
+
+.close-btn:hover {
+    background: var(--background-modifier-hover);
+    color: var(--header-primary);
+    transform: scale(1.1);
+}
+
+.server-info-content {
+    color: var(--text-normal);
+    line-height: 1.6;
+}
+
+.server-group {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: var(--background-floating);
+    border-radius: var(--button-border-radius);
+    border: 1px solid var(--border-color);
+}
+
+.server-group h4 {
+    color: var(--header-primary);
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.server-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.server-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.server-list li:last-child {
+    border-bottom: none;
+}
+
+.server-name {
+    font-weight: 500;
+    color: var(--text-normal);
+}
+
+.server-location {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--background-modifier-hover);
+    padding: 2px 8px;
+    border-radius: 12px;
 }
 
 .hidden {

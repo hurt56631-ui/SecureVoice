@@ -103,6 +103,21 @@
                 <i class="fas fa-door-open input-icon"></i>
                 <input type="text" id="roomNameInput" class="login-input" placeholder="例如：游戏开黑" maxlength="30">
             </div>
+            <div class="server-selection">
+                <label for="serverSelect" class="server-label">
+                    <i class="fas fa-server"></i>
+                    <span>连接节点</span>
+                </label>
+                <select id="serverSelect" class="server-select">
+                    <option value="china-optimized">中国优化 (推荐)</option>
+                    <option value="global-standard">全球标准</option>
+                    <option value="turn-enabled">TURN增强 (NAT穿透)</option>
+                    <option value="custom">自定义配置</option>
+                </select>
+                <button id="serverInfoBtn" class="server-info-btn" title="查看服务器详情">
+                    <i class="fas fa-info-circle"></i>
+                </button>
+            </div>
             <button id="joinButton">
                 <i class="fas fa-sign-in-alt"></i>
                 <span>加入频道</span>
@@ -110,6 +125,21 @@
             <div id="statusText" class="status-text hidden">
                 <i class="fas fa-spinner fa-spin"></i>
                 <span>正在连接...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 服务器信息模态框 -->
+    <div class="server-info-modal-overlay hidden" id="server-info-modal">
+        <div class="server-info-modal">
+            <div class="modal-header">
+                <h3>服务器节点信息</h3>
+                <button class="close-btn" id="closeServerInfoBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="server-info-content" id="serverInfoContent">
+                <!-- 服务器信息将由JavaScript动态填充 -->
             </div>
         </div>
     </div>
