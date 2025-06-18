@@ -48,11 +48,8 @@ const serverConfigs = {
         description: '针对中国大陆网络环境优化的STUN服务器',
         iceServers: [
             { urls: 'stun:stun.voipbuster.com:3478' },
-            { urls: 'stun:stun.wirlab.net:3478' },
-            { urls: 'stun:stun.ekiga.net:3478' },
-            { urls: 'stun:stun.ideasip.com:3478' },
-            { urls: 'stun:stun.voiparound.com:3478' },
-            { urls: 'stun:stun.counterpath.com:3478' }
+            { urls: 'stun:stun.miwifi.com:3478' },
+            { urls: 'stun:stun.cloudflare.com:3478' }
         ]
     },
     'global-standard': {
@@ -71,14 +68,27 @@ const serverConfigs = {
         description: '包含TURN服务器，适用于严格NAT环境',
         iceServers: [
             { urls: 'stun:stun.voipbuster.com:3478' },
-            { urls: 'stun:stun.wirlab.net:3478' },
             {
                 urls: 'turn:relay1.expressturn.com:3480',
                 username: '000000002065629175',
                 credential: 'i5d1YIapn3pSTo27j0FlbFm6C0w='
             },
-            { urls: 'stun:stun.l.google.com:19302' }
-        ]
+            { urls: 'turn:turn.cloudflare.com:3478' }
+        ],
+        iceTransportPolicy: 'all' // 允许所有传输方式
+    },
+    'turn-only': {
+        name: 'TURN专用',
+        description: '强制使用TURN中继，适用于无法P2P连接的环境',
+        iceServers: [
+            {
+                urls: 'turn:relay1.expressturn.com:3480',
+                username: '000000002065629175',
+                credential: 'i5d1YIapn3pSTo27j0FlbFm6C0w='
+            },
+            { urls: 'turn:turn.cloudflare.com:3478' }
+        ],
+        iceTransportPolicy: 'relay' // 强制使用中继
     },
     'custom': {
         name: '自定义配置',
@@ -223,6 +233,11 @@ function setupWebSocketListeners(roomName, username) { // 接收用户名
                 // 定期检查连接状态
                 setInterval(checkAllConnectionStates, 3000);
 
+                // 运行网络诊断
+                setTimeout(() => {
+                    diagnoseNetworkConnectivity();
+                }, 2000);
+
                 // 将自己添加到侧边栏
                 addSidebarUser(myPeerId, username);
 
@@ -305,13 +320,19 @@ function createPeerConnection(peerId) {
     // 处理ICE候选收集
     pc.onicecandidate = (event) => {
         if (event.candidate) {
-            console.log(`发送ICE候选给 ${peerId}:`, event.candidate.type);
+            console.log(`🧊 发送ICE候选给 ${peerId}:`, {
+                type: event.candidate.type,
+                protocol: event.candidate.protocol,
+                address: event.candidate.address,
+                port: event.candidate.port,
+                foundation: event.candidate.foundation
+            });
             socket.send(JSON.stringify({
                 type: 'ice-candidate',
                 data: { target: peerId, candidate: event.candidate }
             }));
         } else {
-            console.log(`ICE候选收集完成: ${peerId}`);
+            console.log(`✅ ICE候选收集完成: ${peerId}`);
         }
     };
 
@@ -526,11 +547,19 @@ async function handleAnswer(sdp, senderId) {
 }
 
 async function handleIceCandidate(candidate, senderId) {
-    console.log(`收到来自 ${senderId} 的ICE候选:`, candidate.type || 'unknown', candidate);
+    console.log(`🧊 收到来自 ${senderId} 的ICE候选:`, {
+        type: candidate.type || 'unknown',
+        protocol: candidate.protocol,
+        address: candidate.address,
+        port: candidate.port,
+        foundation: candidate.foundation,
+        priority: candidate.priority
+    });
+
     const pc = peerConnections.get(senderId);
 
     if (!pc) {
-        console.warn(`未找到与 ${senderId} 的PeerConnection，暂存ICE候选`);
+        console.warn(`⚠️ 未找到与 ${senderId} 的PeerConnection，暂存ICE候选`);
         if (!pendingIceCandidates.has(senderId)) {
             pendingIceCandidates.set(senderId, []);
         }
@@ -541,7 +570,7 @@ async function handleIceCandidate(candidate, senderId) {
     try {
         // 检查是否应该忽略ICE候选（在忽略offer的情况下）
         if (ignoreOffer.get(senderId)) {
-            console.log(`忽略来自 ${senderId} 的ICE候选（正在忽略offer）`);
+            console.log(`🚫 忽略来自 ${senderId} 的ICE候选（正在忽略offer）`);
             return;
         }
 
@@ -551,11 +580,16 @@ async function handleIceCandidate(candidate, senderId) {
             if (candidate && (candidate.candidate || candidate.type)) {
                 await pc.addIceCandidate(new RTCIceCandidate(candidate));
                 console.log(`✅ 成功添加ICE候选: ${senderId} (${candidate.type || 'unknown'})`);
+
+                // 添加候选后检查连接状态
+                setTimeout(() => {
+                    console.log(`📊 ICE候选添加后状态检查 ${senderId}: ice=${pc.iceConnectionState}, connection=${pc.connectionState}`);
+                }, 1000);
             } else {
-                console.warn(`无效的ICE候选: ${senderId}`, candidate);
+                console.warn(`⚠️ 无效的ICE候选: ${senderId}`, candidate);
             }
         } else {
-            console.log(`远程描述未设置，暂存ICE候选: ${senderId}`);
+            console.log(`⏳ 远程描述未设置，暂存ICE候选: ${senderId}`);
             if (!pendingIceCandidates.has(senderId)) {
                 pendingIceCandidates.set(senderId, []);
             }
@@ -966,6 +1000,57 @@ async function updateConnectionStats() {
     }
 }
 
+// 网络诊断功能
+async function diagnoseNetworkConnectivity() {
+    console.log('🔍 开始网络连接诊断...');
+
+    try {
+        // 测试STUN服务器连接
+        const testPC = new RTCPeerConnection({
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun.voipbuster.com:3478' }
+            ]
+        });
+
+        const candidates = [];
+
+        testPC.onicecandidate = (event) => {
+            if (event.candidate) {
+                candidates.push({
+                    type: event.candidate.type,
+                    protocol: event.candidate.protocol,
+                    address: event.candidate.address,
+                    port: event.candidate.port
+                });
+                console.log('🧊 诊断ICE候选:', event.candidate.type, event.candidate.address);
+            } else {
+                console.log('📊 网络诊断结果:', {
+                    totalCandidates: candidates.length,
+                    hostCandidates: candidates.filter(c => c.type === 'host').length,
+                    srflxCandidates: candidates.filter(c => c.type === 'srflx').length,
+                    relayCandidates: candidates.filter(c => c.type === 'relay').length
+                });
+
+                if (candidates.filter(c => c.type === 'srflx').length === 0) {
+                    console.warn('⚠️ 警告：未获取到srflx候选，可能存在NAT穿透问题');
+                    console.log('💡 建议：尝试使用TURN增强节点');
+                }
+
+                testPC.close();
+            }
+        };
+
+        // 创建数据通道触发ICE收集
+        testPC.createDataChannel('test');
+        const offer = await testPC.createOffer();
+        await testPC.setLocalDescription(offer);
+
+    } catch (error) {
+        console.error('❌ 网络诊断失败:', error);
+    }
+}
+
 // 显示服务器信息
 function showServerInfo() {
     const serverInfoHTML = `
@@ -1004,12 +1089,35 @@ function showServerInfo() {
         </div>
 
         <div class="server-group">
+            <h4><i class="fas fa-rocket"></i> TURN专用节点</h4>
+            <p>强制使用TURN中继，确保在任何网络环境下都能连接</p>
+            <ul class="server-list">
+                <li><span class="server-name">relay1.expressturn.com</span><span class="server-location">专用中继</span></li>
+            </ul>
+            <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">
+                <i class="fas fa-exclamation-triangle"></i>
+                此模式会消耗更多带宽，但保证连接成功率
+            </p>
+        </div>
+
+        <div class="server-group">
             <h4><i class="fas fa-cog"></i> 连接建议</h4>
             <ul style="list-style: disc; padding-left: 20px; margin: 8px 0;">
                 <li><strong>中国大陆用户</strong>：推荐使用"中国优化"节点</li>
                 <li><strong>海外用户</strong>：推荐使用"全球标准"节点</li>
                 <li><strong>企业网络</strong>：如果连接失败，尝试"TURN增强"节点</li>
-                <li><strong>连接问题</strong>：可尝试切换不同节点解决</li>
+                <li><strong>严格NAT环境</strong>：使用"TURN专用"强制中继连接</li>
+                <li><strong>云端部署问题</strong>：不同客户端无法连接时，尝试TURN节点</li>
+            </ul>
+        </div>
+
+        <div class="server-group">
+            <h4><i class="fas fa-bug"></i> 故障排除</h4>
+            <ul style="list-style: disc; padding-left: 20px; margin: 8px 0;">
+                <li><strong>本地测试正常，云端无法连接</strong>：NAT穿透问题，使用TURN节点</li>
+                <li><strong>企业网络连接失败</strong>：防火墙阻止UDP，尝试TURN专用</li>
+                <li><strong>移动网络问题</strong>：运营商NAT限制，使用TURN增强</li>
+                <li><strong>检查控制台日志</strong>：查看ICE候选类型和连接状态</li>
             </ul>
         </div>
     `;
