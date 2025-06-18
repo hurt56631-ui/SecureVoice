@@ -20,23 +20,53 @@
     --channels-default: #8E9297; /* 频道默认颜色 */
     --brand-color: #5865F2; /* Discord Blurple */
     --green-360: #2DC770; /* 绿色，用于在线/说话状态 */
+    --green-400: #23A55A; /* 深绿色，用于连接成功状态 */
     --red-400: #F23F42; /* 红色，用于挂断/错误 */
+    --red-500: #DA373C; /* 深红色，用于连接失败状态 */
+    --yellow-400: #FEE75C; /* 黄色，用于连接中状态 */
+    --orange-400: #F0B132; /* 橙色，用于重连状态 */
 
     --border-color: #27292D;
     --input-background: #202225; /* 输入框背景 */
 
-    --card-border-radius: 8px; /* 卡片圆角 */
-    --button-border-radius: 4px; /* 按钮圆角 */
+    --card-border-radius: 12px; /* 卡片圆角 */
+    --button-border-radius: 8px; /* 按钮圆角 */
+
+    /* 新增渐变色 */
+    --gradient-brand: linear-gradient(135deg, #5865F2 0%, #7289DA 100%);
+    --gradient-success: linear-gradient(135deg, #2DC770 0%, #23A55A 100%);
+    --gradient-danger: linear-gradient(135deg, #F23F42 0%, #DA373C 100%);
+
+    /* 阴影 */
+    --shadow-small: 0 2px 8px rgba(0, 0, 0, 0.15);
+    --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.2);
+    --shadow-large: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+* {
+    box-sizing: border-box;
 }
 
 body {
-    font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    background-color: var(--background-primary);
+    font-family: 'gg sans', 'Noto Sans SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: var(--gradient-brand);
     color: var(--text-normal);
     margin: 0;
     display: flex;
     height: 100vh;
     overflow: hidden;
+    position: relative;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--background-primary);
+    z-index: -1;
 }
 
 .app-container {
@@ -47,21 +77,33 @@ body {
 
 /* Sidebar (Left Column) */
 .sidebar {
-    width: 240px;
-    background-color: var(--background-secondary);
+    width: 260px;
+    background: linear-gradient(180deg, var(--background-secondary) 0%, var(--background-tertiary) 100%);
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    border-right: 1px solid var(--border-color);
+    box-shadow: var(--shadow-medium);
+    position: relative;
+    z-index: 10;
 }
 
 .sidebar-header {
-    padding: 12px 16px;
+    padding: 16px 20px;
     border-bottom: 1px solid var(--border-color);
-    font-weight: 500;
-    font-size: 16px;
+    font-weight: 600;
+    font-size: 18px;
     color: var(--header-primary);
-    box-shadow: 0 1px 0 rgba(4,4,5,0.2), 0 1.5px 0 rgba(6,6,7,0.05), 0 2px 0 rgba(4,4,5,0.05);
+    background: var(--gradient-brand);
+    box-shadow: var(--shadow-small);
     z-index: 2;
+    position: relative;
+}
+
+.sidebar-header::before {
+    content: '🎙️';
+    margin-right: 8px;
+    font-size: 20px;
 }
 
 #room-name-display {
@@ -84,14 +126,61 @@ body {
     color: var(--channels-default);
 }
 
+/* 动画定义 */
 @keyframes slide-in {
     from {
         opacity: 0;
-        transform: translateX(-10px);
+        transform: translateX(-20px) scale(0.95);
     }
     to {
         opacity: 1;
-        transform: translateX(0);
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes pulse-speaking {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 2px var(--green-360);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 4px var(--green-360);
+    }
+}
+
+@keyframes pulse-connecting {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.6;
+        transform: scale(0.9);
+    }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+}
+
+@keyframes glow {
+    0%, 100% {
+        box-shadow: 0 0 5px var(--brand-color);
+    }
+    50% {
+        box-shadow: 0 0 20px var(--brand-color), 0 0 30px var(--brand-color);
+    }
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-4px);
     }
 }
 
@@ -105,62 +194,173 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 6px 8px;
-    border-radius: 4px;
-    transition: background-color 0.2s ease;
-    animation: slide-in 0.3s ease-out forwards;
+    padding: 8px 12px;
+    margin: 2px 8px;
+    border-radius: var(--button-border-radius);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    animation: slide-in 0.4s ease-out forwards;
+    position: relative;
+    cursor: pointer;
 }
 
 .sidebar-user:hover {
     background-color: var(--background-modifier-hover);
+    transform: translateX(4px);
+    box-shadow: var(--shadow-small);
 }
 
 .sidebar-user .avatar {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    background-color: var(--brand-color);
+    background: var(--gradient-brand);
     flex-shrink: 0;
     position: relative;
-    border: 2px solid transparent;
-    transition: border-color 0.1s ease-in-out;
+    border: 3px solid transparent;
+    transition: all 0.2s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+}
+
+.sidebar-user .avatar::before {
+    content: attr(data-initial);
+    text-transform: uppercase;
 }
 
 .sidebar-user .avatar.speaking {
     border-color: var(--green-360);
+    box-shadow: 0 0 0 2px var(--green-360);
+    animation: pulse-speaking 1.5s ease-in-out infinite;
 }
 
-.sidebar-user span {
+.sidebar-user .user-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.sidebar-user .username {
     color: var(--text-normal);
     font-weight: 500;
+    font-size: 14px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: color 0.2s ease;
 }
 
-.sidebar-user.me span {
+.sidebar-user.me .username {
     color: #FFD700; /* Gold */
+    font-weight: 600;
+}
+
+/* WebRTC连接状态指示器 */
+.sidebar-user .connection-status {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+}
+
+.sidebar-user .connection-status.connected {
+    color: var(--green-400);
+}
+
+.sidebar-user .connection-status.connecting {
+    color: var(--yellow-400);
+    animation: pulse-connecting 2s ease-in-out infinite;
+}
+
+.sidebar-user .connection-status.disconnected {
+    color: var(--red-500);
+}
+
+.sidebar-user .connection-status.failed {
+    color: var(--red-400);
+}
+
+/* 连接状态指示点 */
+.sidebar-user .status-indicator {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--background-secondary);
+    transition: all 0.2s ease;
+}
+
+.sidebar-user .status-indicator.connected {
+    background-color: var(--green-400);
+    box-shadow: 0 0 0 2px var(--green-400);
+}
+
+.sidebar-user .status-indicator.connecting {
+    background-color: var(--yellow-400);
+    animation: pulse-connecting 2s ease-in-out infinite;
+}
+
+.sidebar-user .status-indicator.disconnected {
+    background-color: var(--red-500);
+}
+
+.sidebar-user .status-indicator.failed {
+    background-color: var(--red-400);
+    animation: shake 0.5s ease-in-out;
 }
 
 /* User Controls (Bottom Left) */
 .user-controls {
-    padding: 8px;
-    background-color: var(--background-tertiary);
+    padding: 12px;
+    background: linear-gradient(135deg, var(--background-tertiary) 0%, var(--background-floating) 100%);
     display: flex;
     align-items: center;
-    gap: 8px;
-    position: relative; /* For potential future absolute positioning of elements */
+    gap: 12px;
+    position: relative;
+    border-top: 1px solid var(--border-color);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .user-profile-card {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     flex-grow: 1;
-    padding: 8px;
-    background-color: var(--background-tertiary);
+    padding: 12px;
+    background: var(--gradient-brand);
     border-radius: var(--card-border-radius);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-medium);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.user-profile-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    transition: left 0.5s ease;
+}
+
+.user-profile-card:hover::before {
+    left: 100%;
+}
+
+.user-profile-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-large);
 }
 
 .user-info {
@@ -214,11 +414,29 @@ body {
 }
 
 .avatar.my-avatar {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    background-color: var(--green-360);
+    background: var(--gradient-success);
     position: relative;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: white;
+    animation: float 3s ease-in-out infinite;
+}
+
+.avatar.my-avatar.speaking {
+    animation: pulse-speaking 1s ease-in-out infinite, float 3s ease-in-out infinite;
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+.avatar.my-avatar::before {
+    content: '🎤';
 }
 
 
@@ -286,19 +504,53 @@ body {
 }
 
 .main-header {
-    padding: 12px 16px;
+    padding: 16px 20px;
     border-bottom: 1px solid var(--border-color);
-    font-weight: 500;
+    font-weight: 600;
     color: var(--header-primary);
-    box-shadow: 0 1px 0 rgba(4,4,5,0.2), 0 1.5px 0 rgba(6,6,7,0.05), 0 2px 0 rgba(4,4,5,0.05);
+    box-shadow: var(--shadow-small);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
+    background: linear-gradient(135deg, var(--background-primary) 0%, var(--background-secondary) 100%);
+    position: relative;
+    z-index: 5;
 }
 
 .main-header .channel-icon {
     font-size: 20px;
+    color: var(--brand-color);
+    animation: float 3s ease-in-out infinite;
+}
+
+.main-header #channel-name-main {
+    flex: 1;
+    font-size: 18px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.header-button {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
     color: var(--header-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.header-button:hover {
+    background: var(--background-modifier-hover);
+    color: var(--header-primary);
+    transform: scale(1.1);
 }
 
 #remote-audio-container {
@@ -436,48 +688,75 @@ body {
 
 /* Main Content Footer (Floating Buttons) */
 .main-content-footer {
-    position: sticky; /* 或 fixed，取决于具体布局需求 */
+    position: sticky;
     bottom: 0;
     left: 0;
     right: 0;
-    background-color: var(--background-primary); /* 与主内容区背景一致 */
-    padding: 16px 24px;
+    background: linear-gradient(180deg, transparent 0%, var(--background-primary) 20%);
+    padding: 20px 24px;
     display: flex;
     justify-content: center;
-    gap: 16px;
+    gap: 20px;
     border-top: 1px solid var(--border-color);
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
-    z-index: 10; /* 确保在其他内容之上 */
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    backdrop-filter: blur(10px);
 }
 
 .footer-button {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%; /* 圆形按钮 */
-    background-color: var(--background-tertiary);
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--gradient-brand);
     border: none;
-    color: var(--interactive-normal);
+    color: white;
     font-size: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: var(--shadow-medium);
+    position: relative;
+    overflow: hidden;
+}
+
+.footer-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.footer-button:hover::before {
+    left: 100%;
 }
 
 .footer-button:hover {
-    background-color: var(--background-modifier-hover);
-    color: var(--interactive-hover);
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: var(--shadow-large);
+    animation: glow 2s ease-in-out infinite;
+}
+
+.footer-button:active {
+    transform: translateY(-2px) scale(0.98);
+}
+
+.footer-button.muted {
+    background: var(--gradient-danger);
+    animation: shake 0.5s ease-in-out;
 }
 
 .footer-button.disconnect {
-    background-color: var(--red-400);
-    color: white;
+    background: var(--gradient-danger);
 }
 
 .footer-button.disconnect:hover {
-    background-color: #d4373a; /* 红色按钮的深色悬停状态 */
+    background: linear-gradient(135deg, #DA373C 0%, #B91C1C 100%);
 }
 
 /* Login/Join Modal */
@@ -487,66 +766,428 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0,0,0,0.7);
+    background: linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(88,101,242,0.2) 100%);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 100;
+    backdrop-filter: blur(10px);
+    animation: fadeIn 0.3s ease-out;
 }
 
 .login-modal {
-    background-color: var(--background-secondary);
-    padding: 24px;
-    border-radius: 8px;
-    width: 440px;
+    background: linear-gradient(135deg, var(--background-secondary) 0%, var(--background-tertiary) 100%);
+    padding: 32px;
+    border-radius: var(--card-border-radius);
+    width: 480px;
+    max-width: 90vw;
     text-align: center;
-    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    box-shadow: var(--shadow-large);
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+    animation: slideUp 0.4s ease-out;
+}
+
+.login-modal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--gradient-brand);
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.modal-icon {
+    font-size: 32px;
+    color: var(--brand-color);
+    animation: pulse-speaking 2s ease-in-out infinite;
 }
 
 .login-modal h2 {
     color: var(--header-primary);
-    margin: 0 0 8px;
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
 }
 
 .login-modal p {
     color: var(--header-secondary);
-    margin: 0 0 20px;
+    margin: 0 0 24px;
+    line-height: 1.5;
+}
+
+.input-group {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--header-secondary);
+    font-size: 16px;
+    z-index: 1;
 }
 
 .login-input {
     width: 100%;
-    padding: 10px;
+    padding: 14px 14px 14px 44px;
     box-sizing: border-box;
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     background-color: var(--input-background);
     color: var(--text-normal);
-    border-radius: 4px;
+    border-radius: var(--button-border-radius);
     font-size: 16px;
-    margin-bottom: 20px;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.login-input:focus {
+    border-color: var(--brand-color);
+    box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.1);
+    transform: translateY(-1px);
+}
+
+.login-input:focus + .input-icon {
+    color: var(--brand-color);
 }
 
 #joinButton {
     width: 100%;
-    padding: 12px;
+    padding: 16px;
     border: none;
-    background: #5865f2; /* Discord Blurple */
+    background: var(--gradient-brand);
     color: white;
-    border-radius: 4px;
+    border-radius: var(--button-border-radius);
     cursor: pointer;
     font-size: 16px;
-    font-weight: 500;
-    transition: background-color 0.2s;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+}
+
+#joinButton::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+#joinButton:hover::before {
+    left: 100%;
 }
 
 #joinButton:hover {
-    background-color: #4752c4;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
 }
 
-#statusText {
-    margin-top: 10px;
+#joinButton:active {
+    transform: translateY(0);
+}
+
+#joinButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.status-text {
+    margin-top: 16px;
     color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .hidden {
     display: none;
+}
+/* --- Responsive Design for Mobile --- */
+
+/* 平板设备 */
+@media (max-width: 1024px) {
+    .sidebar {
+        width: 220px;
+    }
+
+    #remote-audio-container {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 16px;
+        padding: 16px;
+    }
+}
+
+/* 移动端设备 */
+@media (max-width: 768px) {
+    body {
+        flex-direction: column;
+    }
+
+    .app-container {
+        flex-direction: column;
+        height: 100vh;
+    }
+
+    .sidebar {
+        width: 100%;
+        height: auto;
+        max-height: 40vh;
+        order: 2;
+        border-right: none;
+        border-top: 1px solid var(--border-color);
+        background: var(--background-secondary);
+    }
+
+    .sidebar-header {
+        padding: 12px 16px;
+        font-size: 16px;
+        text-align: center;
+    }
+
+    .channels {
+        padding: 8px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .user-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 8px;
+    }
+
+    .sidebar-user {
+        flex-direction: column;
+        text-align: center;
+        padding: 8px;
+        margin: 0;
+        gap: 6px;
+    }
+
+    .sidebar-user .user-info {
+        align-items: center;
+    }
+
+    .sidebar-user .username {
+        font-size: 12px;
+    }
+
+    .sidebar-user .connection-status {
+        font-size: 10px;
+    }
+
+    .user-controls {
+        padding: 8px;
+        order: 3;
+    }
+
+    .user-profile-card {
+        padding: 8px;
+        gap: 8px;
+    }
+
+    .avatar.my-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+
+    .main-content {
+        order: 1;
+        flex: 1;
+        min-height: 0;
+    }
+
+    .main-header {
+        padding: 12px 16px;
+        font-size: 16px;
+    }
+
+    #remote-audio-container {
+        grid-template-columns: 1fr;
+        padding: 12px;
+        gap: 12px;
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .audio-card {
+        padding: 12px;
+        gap: 12px;
+    }
+
+    .avatar {
+        width: 40px;
+        height: 40px;
+    }
+
+    .chat-area {
+        padding: 0 12px 12px 12px;
+        max-height: 200px;
+    }
+
+    #chat-messages {
+        height: 100px;
+    }
+
+    .main-content-footer {
+        padding: 12px 16px;
+        gap: 16px;
+        order: 4;
+        position: sticky;
+        bottom: 0;
+    }
+
+    .footer-button {
+        width: 48px;
+        height: 48px;
+        font-size: 20px;
+    }
+
+    .login-modal {
+        width: 90%;
+        max-width: 400px;
+        padding: 20px;
+        margin: 20px;
+    }
+
+    .login-input {
+        font-size: 16px; /* 防止iOS缩放 */
+    }
+}
+
+/* 小屏幕手机 */
+@media (max-width: 480px) {
+    .sidebar-header {
+        font-size: 14px;
+        padding: 10px 12px;
+    }
+
+    .user-list {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    }
+
+    .sidebar-user .avatar {
+        width: 28px;
+        height: 28px;
+    }
+
+    .main-content-footer {
+        padding: 8px 12px;
+        gap: 12px;
+    }
+
+    .footer-button {
+        width: 44px;
+        height: 44px;
+        font-size: 18px;
+    }
+
+    #remote-audio-container {
+        padding: 8px;
+        gap: 8px;
+    }
+
+    .audio-card {
+        padding: 8px;
+        gap: 8px;
+    }
+
+    .avatar {
+        width: 36px;
+        height: 36px;
+    }
+
+    .login-modal {
+        width: 95%;
+        padding: 16px;
+        margin: 10px;
+    }
+}
+
+/* 横屏模式优化 */
+@media (max-width: 768px) and (orientation: landscape) {
+    .sidebar {
+        max-height: 30vh;
+    }
+
+    .user-list {
+        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    }
+
+    .sidebar-user {
+        padding: 6px;
+        gap: 4px;
+    }
+
+    .sidebar-user .username {
+        font-size: 11px;
+    }
+
+    .main-content-footer {
+        padding: 8px 16px;
+    }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+    .sidebar-user:hover {
+        transform: none;
+        background-color: var(--background-modifier-active);
+    }
+
+    .footer-button:hover {
+        transform: none;
+        animation: none;
+    }
+
+    .footer-button:active {
+        transform: scale(0.95);
+        transition: transform 0.1s ease;
+    }
+
+    .audio-card:hover {
+        transform: none;
+        box-shadow: var(--shadow-small);
+    }
 }

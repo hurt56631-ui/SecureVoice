@@ -4,10 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SecureVoice</title>
+    <meta name="description" content="安全的实时语音聊天应用">
+    <meta name="theme-color" content="#5865F2">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- 添加图标字体 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
     <!-- 主应用界面 -->
@@ -41,8 +46,16 @@
         <!-- 中间主内容区 -->
         <div class="main-content">
             <header class="main-header">
-                <span class="channel-icon">🔊</span>
-                <span id="channel-name-main">通用</span>
+                <i class="fas fa-volume-up channel-icon"></i>
+                <span id="channel-name-main">语音频道</span>
+                <div class="header-actions">
+                    <button class="header-button" id="settings-btn" title="设置">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <button class="header-button" id="info-btn" title="频道信息">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                </div>
             </header>
             
             <audio id="localAudio" muted autoplay playsinline></audio>
@@ -61,9 +74,15 @@
 
             <!-- 中间内容区底部悬浮按钮 -->
             <div class="main-content-footer">
-                <button id="mic-toggle-footer-btn" class="footer-button">🎤</button>
-                <button id="toggle-chat-btn" class="footer-button">💬</button>
-                <button id="disconnect-btn" class="footer-button disconnect">📞</button>
+                <button id="mic-toggle-footer-btn" class="footer-button" title="切换麦克风">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button id="toggle-chat-btn" class="footer-button" title="切换聊天">
+                    <i class="fas fa-comments"></i>
+                </button>
+                <button id="disconnect-btn" class="footer-button disconnect" title="断开连接">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
             </div>
         </div>
     </div>
@@ -71,12 +90,27 @@
     <!-- 登录模态框 -->
     <div class="login-modal-overlay" id="login-modal">
         <div class="login-modal">
-            <h2>加入语音频道</h2>
+            <div class="modal-header">
+                <i class="fas fa-microphone-alt modal-icon"></i>
+                <h2>加入语音频道</h2>
+            </div>
             <p>输入您的用户名和房间名来创建或加入一个语音频道。</p>
-            <input type="text" id="usernameInput" class="login-input" placeholder="您的用户名">
-            <input type="text" id="roomNameInput" class="login-input" placeholder="例如：游戏开黑">
-            <button id="joinButton">加入</button>
-            <div id="statusText" class="hidden">正在连接...</div>
+            <div class="input-group">
+                <i class="fas fa-user input-icon"></i>
+                <input type="text" id="usernameInput" class="login-input" placeholder="您的用户名" maxlength="20">
+            </div>
+            <div class="input-group">
+                <i class="fas fa-door-open input-icon"></i>
+                <input type="text" id="roomNameInput" class="login-input" placeholder="例如：游戏开黑" maxlength="30">
+            </div>
+            <button id="joinButton">
+                <i class="fas fa-sign-in-alt"></i>
+                <span>加入频道</span>
+            </button>
+            <div id="statusText" class="status-text hidden">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>正在连接...</span>
+            </div>
         </div>
     </div>
 

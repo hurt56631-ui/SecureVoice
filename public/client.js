@@ -33,10 +33,13 @@ let myPeerId;
 let socket;
 const peerConnections = new Map();
 const visualizers = new Map(); // 存储 visualizer 实例
+const pendingIceCandidates = new Map(); // 存储待处理的ICE候选
 const stunServers = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' }
     ]
 };
 
@@ -97,7 +100,10 @@ micToggleButton.onclick = () => {
     if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         micToggleButton.classList.toggle('muted', !audioTrack.enabled);
-        micToggleButton.textContent = audioTrack.enabled ? '🎤' : '🔇';
+        const icon = micToggleButton.querySelector('i');
+        if (icon) {
+            icon.className = audioTrack.enabled ? 'fas fa-microphone' : 'fas fa-microphone-slash';
+        }
     }
 };
 
@@ -139,8 +145,10 @@ function setupWebSocketListeners(roomName, username) { // 接收用户名
                 connectionStateDisplay.textContent = 'Voice Connected';
                 connectionStateDisplay.classList.add('connected');
 
-                // 模拟更新连接延迟和质量
+                // 定期更新连接延迟和质量
                 setInterval(updateConnectionStats, 5000);
+                // 定期检查连接状态
+                setInterval(checkAllConnectionStates, 3000);
 
                 // 将自己添加到侧边栏
                 addSidebarUser(myPeerId, username);
@@ -207,89 +215,299 @@ function createPeerConnection(peerId) {
     if (peerConnections.has(peerId)) {
         return peerConnections.get(peerId);
     }
-    
+
+    console.log(`创建与 ${peerId} 的 PeerConnection`);
     const pc = new RTCPeerConnection(stunServers);
     peerConnections.set(peerId, pc);
+
+    // 初始化待处理的ICE候选队列
+    if (!pendingIceCandidates.has(peerId)) {
+        pendingIceCandidates.set(peerId, []);
+    }
 
     localStream.getTracks().forEach(track => {
         pc.addTrack(track, localStream);
     });
 
-    // 2. 处理收到的 ICE Candidate
+    // 处理ICE候选收集
     pc.onicecandidate = (event) => {
         if (event.candidate) {
+            console.log(`发送ICE候选给 ${peerId}:`, event.candidate.type);
             socket.send(JSON.stringify({
                 type: 'ice-candidate',
                 data: { target: peerId, candidate: event.candidate }
             }));
+        } else {
+            console.log(`ICE候选收集完成: ${peerId}`);
         }
     };
 
     pc.ontrack = (event) => {
+        console.log(`🎵 收到来自 ${peerId} 的音频流`);
         addRemoteAudioStream(peerId, event.streams[0]);
+
+        // 收到音频流是连接成功的强烈信号，立即更新状态
+        console.log(`🎯 音频流已建立，标记 ${peerId} 为已连接`);
+        updatePeerConnectionStatus(peerId, 'connected');
+
+        // 额外检查：如果1秒后ICE状态仍然不对，再次强制更新
+        setTimeout(() => {
+            const currentUIState = peerConnectionStates.get(peerId);
+            if (currentUIState !== 'connected') {
+                console.log(`🔧 强制更新连接状态: ${peerId}`);
+                updatePeerConnectionStatus(peerId, 'connected');
+            }
+        }, 1000);
     };
-    
+
     pc.onconnectionstatechange = () => {
         console.log(`与 ${peerId} 的连接状态: ${pc.connectionState}`);
-        if(pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-           handlePeerDisconnect(peerId);
+        updatePeerConnectionStatus(peerId, pc.connectionState);
+
+        if(pc.connectionState === 'connected') {
+            console.log(`✅ 与 ${peerId} 连接成功`);
+        } else if(pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+            console.log(`❌ 与 ${peerId} 连接失败或断开: ${pc.connectionState}`);
+            handlePeerDisconnect(peerId);
         }
     };
-    
+
+    pc.oniceconnectionstatechange = () => {
+        console.log(`与 ${peerId} 的ICE连接状态: ${pc.iceConnectionState}`);
+
+        // ICE连接状态也很重要，用它来更新UI状态
+        switch (pc.iceConnectionState) {
+            case 'connected':
+            case 'completed':
+                console.log(`🔗 与 ${peerId} 的ICE连接成功`);
+                updatePeerConnectionStatus(peerId, 'connected');
+                break;
+            case 'disconnected':
+                console.log(`🔌 与 ${peerId} 的ICE连接断开`);
+                updatePeerConnectionStatus(peerId, 'disconnected');
+                break;
+            case 'failed':
+                console.log(`❌ 与 ${peerId} 的ICE连接失败`);
+                updatePeerConnectionStatus(peerId, 'failed');
+                // ICE连接失败时尝试重新启动ICE
+                setTimeout(() => {
+                    console.log(`🔄 尝试重新启动ICE连接: ${peerId}`);
+                    pc.restartIce();
+                }, 2000);
+                break;
+            case 'checking':
+                console.log(`🔍 正在检查ICE连接: ${peerId}`);
+                updatePeerConnectionStatus(peerId, 'connecting');
+                break;
+            case 'new':
+                updatePeerConnectionStatus(peerId, 'connecting');
+                break;
+        }
+    };
+
+    pc.onicegatheringstatechange = () => {
+        console.log(`与 ${peerId} 的ICE收集状态: ${pc.iceGatheringState}`);
+        if (pc.iceGatheringState === 'complete') {
+            console.log(`✅ ICE候选收集完成: ${peerId}`);
+            // 收集完成后检查连接状态
+            setTimeout(() => {
+                console.log(`📊 连接状态检查 ${peerId}: connection=${pc.connectionState}, ice=${pc.iceConnectionState}, signaling=${pc.signalingState}`);
+            }, 1000);
+        }
+    };
+
+    // 添加数据通道状态监听（可选，用于调试）
+    pc.ondatachannel = (event) => {
+        console.log(`📡 收到数据通道: ${peerId}`, event.channel.label);
+    };
+
     return pc;
 }
 
-// ( बाकी के WebRTC functions: createAndSendOffer, handleOffer, etc. समान रहते हैं )
 async function createAndSendOffer(peerId) {
-    const pc = createPeerConnection(peerId);
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    socket.send(JSON.stringify({
-        type: 'offer',
-        data: { target: peerId, sdp: pc.localDescription }
-    }));
+    console.log(`创建并发送offer给 ${peerId}`);
+
+    // 防止重复发送offer
+    if (makingOffer.get(peerId)) {
+        console.log(`正在为 ${peerId} 创建offer，跳过重复请求`);
+        return;
+    }
+
+    try {
+        makingOffer.set(peerId, true);
+        const pc = createPeerConnection(peerId);
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        console.log(`发送offer给 ${peerId}`);
+
+        socket.send(JSON.stringify({
+            type: 'offer',
+            data: { target: peerId, sdp: pc.localDescription }
+        }));
+    } catch (error) {
+        console.error(`创建或发送offer失败: ${peerId}`, error);
+    } finally {
+        makingOffer.set(peerId, false);
+    }
 }
  
 // 存储 peerId 到 username 的映射
 const peerIdToUsernameMap = new Map();
+// 存储 peerId 到连接状态的映射
+const peerConnectionStates = new Map();
+// 存储正在进行的offer操作，避免重复发送
+const makingOffer = new Map();
+// 存储忽略的offer，用于处理竞争条件
+const ignoreOffer = new Map();
 
 async function handleOffer(sdp, senderId, senderUsername) { // 接收用户名
+    console.log(`收到来自 ${senderId} (${senderUsername}) 的offer`);
     peerIdToUsernameMap.set(senderId, senderUsername); // 存储映射
+
     const pc = createPeerConnection(senderId);
-    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    socket.send(JSON.stringify({
-        type: 'answer',
-        data: { target: senderId, sdp: pc.localDescription }
-    }));
+
+    // 实现polite/impolite peer模式来处理offer冲突
+    const isPolite = myPeerId < senderId; // 使用字符串比较来决定谁是polite peer
+    const offerCollision = pc.signalingState !== 'stable' || makingOffer.get(senderId);
+
+    ignoreOffer.set(senderId, !isPolite && offerCollision);
+    if (ignoreOffer.get(senderId)) {
+        console.log(`忽略来自 ${senderId} 的offer（offer冲突，我是impolite peer）`);
+        return;
+    }
+
+    try {
+        // 如果当前正在发送offer且我们是polite peer，需要回滚
+        if (offerCollision && isPolite) {
+            console.log(`检测到offer冲突，作为polite peer回滚本地描述`);
+            await pc.setLocalDescription({type: 'rollback'});
+            makingOffer.set(senderId, false);
+        }
+
+        // 设置远程描述
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        console.log(`已设置来自 ${senderId} 的远程描述`);
+
+        // 处理待处理的ICE候选
+        const pendingCandidates = pendingIceCandidates.get(senderId) || [];
+        for (const candidate of pendingCandidates) {
+            try {
+                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log(`添加待处理的ICE候选成功: ${senderId}`);
+            } catch (e) {
+                console.error(`添加待处理的ICE候选失败: ${senderId}`, e);
+            }
+        }
+        pendingIceCandidates.set(senderId, []); // 清空待处理队列
+
+        // 创建并发送answer
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        console.log(`发送answer给 ${senderId}`);
+
+        socket.send(JSON.stringify({
+            type: 'answer',
+            data: { target: senderId, sdp: pc.localDescription }
+        }));
+    } catch (error) {
+        console.error(`处理offer失败: ${senderId}`, error);
+    }
 }
 
 async function handleAnswer(sdp, senderId) {
+    console.log(`收到来自 ${senderId} 的answer，当前信令状态:`, peerConnections.get(senderId)?.signalingState);
     const pc = peerConnections.get(senderId);
-    if (pc) {
-        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+
+    if (!pc) {
+        console.error(`未找到与 ${senderId} 的PeerConnection`);
+        return;
+    }
+
+    try {
+        // 检查信令状态，确保可以设置远程描述
+        if (pc.signalingState === 'have-local-offer') {
+            await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+            console.log(`已设置来自 ${senderId} 的answer`);
+
+            // 处理待处理的ICE候选
+            const pendingCandidates = pendingIceCandidates.get(senderId) || [];
+            for (const candidate of pendingCandidates) {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                    console.log(`添加待处理的ICE候选成功: ${senderId}`);
+                } catch (e) {
+                    console.error(`添加待处理的ICE候选失败: ${senderId}`, e);
+                }
+            }
+            pendingIceCandidates.set(senderId, []); // 清空待处理队列
+        } else {
+            console.warn(`无法设置远程描述，当前信令状态: ${pc.signalingState}`);
+        }
+    } catch (e) {
+        console.error(`设置远程描述失败: ${senderId}`, e);
+    } finally {
+        // 重置状态标志
+        makingOffer.set(senderId, false);
     }
 }
 
 async function handleIceCandidate(candidate, senderId) {
+    console.log(`收到来自 ${senderId} 的ICE候选:`, candidate.type || 'unknown', candidate);
     const pc = peerConnections.get(senderId);
-    if (pc) {
-        try {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch(e) {
-            console.error("添加 ICE candidate 失败:", e);
+
+    if (!pc) {
+        console.warn(`未找到与 ${senderId} 的PeerConnection，暂存ICE候选`);
+        if (!pendingIceCandidates.has(senderId)) {
+            pendingIceCandidates.set(senderId, []);
         }
+        pendingIceCandidates.get(senderId).push(candidate);
+        return;
+    }
+
+    try {
+        // 检查是否应该忽略ICE候选（在忽略offer的情况下）
+        if (ignoreOffer.get(senderId)) {
+            console.log(`忽略来自 ${senderId} 的ICE候选（正在忽略offer）`);
+            return;
+        }
+
+        // 检查是否可以添加ICE候选
+        if (pc.remoteDescription && pc.remoteDescription.type) {
+            // 确保候选有效
+            if (candidate && (candidate.candidate || candidate.type)) {
+                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log(`✅ 成功添加ICE候选: ${senderId} (${candidate.type || 'unknown'})`);
+            } else {
+                console.warn(`无效的ICE候选: ${senderId}`, candidate);
+            }
+        } else {
+            console.log(`远程描述未设置，暂存ICE候选: ${senderId}`);
+            if (!pendingIceCandidates.has(senderId)) {
+                pendingIceCandidates.set(senderId, []);
+            }
+            pendingIceCandidates.get(senderId).push(candidate);
+        }
+    } catch(e) {
+        console.error(`❌ 添加ICE候选失败: ${senderId}`, e, candidate);
+        // 如果添加失败，不要阻止后续候选的处理
     }
 }
 
 
 function handlePeerDisconnect(peerId) {
+    console.log(`处理与 ${peerId} 的断开连接`);
+
     const pc = peerConnections.get(peerId);
     if (pc) {
         pc.close();
         peerConnections.delete(peerId);
     }
+
+    // 清理所有相关状态
+    pendingIceCandidates.delete(peerId);
+    makingOffer.delete(peerId);
+    ignoreOffer.delete(peerId);
 
     const visualizer = visualizers.get(peerId);
     if(visualizer) {
@@ -306,6 +524,10 @@ function handlePeerDisconnect(peerId) {
     if (sidebarUser) {
         sidebarUser.remove();
     }
+
+    // 清理用户名映射和连接状态
+    peerIdToUsernameMap.delete(peerId);
+    peerConnectionStates.delete(peerId);
 
     console.log(`与成员 ${peerId} 的连接已关闭`);
 }
@@ -428,6 +650,59 @@ function addRemoteAudioStream(peerId, stream) {
     // 侧边栏用户列表项的添加现在由 `addSidebarUser` 函数处理
 }
 
+// 更新用户连接状态显示
+function updatePeerConnectionStatus(peerId, connectionState) {
+    console.log(`🔄 更新 ${peerId} 的连接状态: ${connectionState}`);
+    peerConnectionStates.set(peerId, connectionState);
+    const userElement = document.getElementById(`sidebar-user-${peerId}`);
+    if (!userElement) {
+        console.warn(`未找到用户元素: sidebar-user-${peerId}`);
+        return;
+    }
+
+    const statusIndicator = userElement.querySelector('.status-indicator');
+    const connectionStatus = userElement.querySelector('.connection-status');
+
+    if (statusIndicator && connectionStatus) {
+        // 清除所有状态类
+        statusIndicator.className = 'status-indicator';
+        connectionStatus.className = 'connection-status';
+
+        // 根据连接状态设置样式和文本
+        switch (connectionState) {
+            case 'connected':
+                statusIndicator.classList.add('connected');
+                connectionStatus.classList.add('connected');
+                connectionStatus.textContent = '已连接';
+                console.log(`✅ UI已更新: ${peerId} 显示为已连接`);
+                break;
+            case 'connecting':
+            case 'new':
+            case 'checking':
+                statusIndicator.classList.add('connecting');
+                connectionStatus.classList.add('connecting');
+                connectionStatus.textContent = '连接中';
+                break;
+            case 'disconnected':
+                statusIndicator.classList.add('disconnected');
+                connectionStatus.classList.add('disconnected');
+                connectionStatus.textContent = '已断开';
+                break;
+            case 'failed':
+                statusIndicator.classList.add('failed');
+                connectionStatus.classList.add('failed');
+                connectionStatus.textContent = '连接失败';
+                break;
+            default:
+                statusIndicator.classList.add('connecting');
+                connectionStatus.classList.add('connecting');
+                connectionStatus.textContent = '连接中';
+        }
+    } else {
+        console.warn(`未找到状态指示器元素: ${peerId}`);
+    }
+}
+
 // 新增函数：在侧边栏添加用户
 function addSidebarUser(peerId, username) {
     if (!document.getElementById(`sidebar-user-${peerId}`)) {
@@ -441,30 +716,62 @@ function addSidebarUser(peerId, username) {
 
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
+        avatar.setAttribute('data-initial', username.charAt(0).toUpperCase());
+
+        // 添加状态指示器
+        const statusIndicator = document.createElement('div');
+        statusIndicator.className = 'status-indicator connecting';
+        avatar.appendChild(statusIndicator);
+
+        const userInfo = document.createElement('div');
+        userInfo.className = 'user-info';
 
         const usernameSpan = document.createElement('span');
-        usernameSpan.textContent = username; // 显示用户名
+        usernameSpan.className = 'username';
+        usernameSpan.textContent = username;
+
+        const connectionStatus = document.createElement('div');
+        connectionStatus.className = 'connection-status connecting';
+        connectionStatus.textContent = peerId === myPeerId ? '本地用户' : '连接中';
+
+        userInfo.appendChild(usernameSpan);
+        userInfo.appendChild(connectionStatus);
 
         userElement.appendChild(avatar);
-        userElement.appendChild(usernameSpan);
+        userElement.appendChild(userInfo);
         userListSidebar.appendChild(userElement);
+
+        // 如果不是自己，初始化连接状态
+        if (peerId !== myPeerId) {
+            peerConnectionStates.set(peerId, 'connecting');
+        } else {
+            // 自己的状态设为已连接
+            updatePeerConnectionStatus(peerId, 'connected');
+        }
     }
 }
 
 function cleanup() {
+    console.log('清理所有连接和资源');
+
     // 停止所有可视化
     visualizers.forEach(v => v.stop());
     visualizers.clear();
 
     peerConnections.forEach(pc => pc.close());
     peerConnections.clear();
-    
+
+    // 清理所有相关状态
+    pendingIceCandidates.clear();
+    makingOffer.clear();
+    ignoreOffer.clear();
+
     remoteAudioContainer.innerHTML = '';
     if(userListSidebar) userListSidebar.innerHTML = '';
-    
+
     localStream?.getTracks().forEach(track => track.stop());
     localAudio.srcObject = null;
-    
+
     appContainer.classList.add('hidden');
     loginModal.classList.remove('hidden');
 
@@ -482,12 +789,56 @@ function cleanup() {
     chatInput.disabled = true;
     sendButton.disabled = true;
     micToggleButton.classList.add('muted');
+    // 重置麦克风图标
+    const micIcon = micToggleButton.querySelector('i');
+    if (micIcon) {
+        micIcon.className = 'fas fa-microphone-slash';
+    }
     peerIdToUsernameMap.clear(); // 清除映射
+    peerConnectionStates.clear(); // 清除连接状态映射
     connectionLatencyDisplay.textContent = 'Ping: --ms';
     connectionQualityDisplay.textContent = 'Quality: --';
     connectionStateDisplay.textContent = 'Connecting';
     connectionStateDisplay.classList.remove('connected');
     chatArea.classList.remove('hidden'); // 确保聊天区域在清理后可见
+}
+
+// 检查所有连接状态并更新UI
+function checkAllConnectionStates() {
+    peerConnections.forEach((pc, peerId) => {
+        const currentState = peerConnectionStates.get(peerId);
+        const actualState = pc.connectionState;
+        const iceState = pc.iceConnectionState;
+        const signalingState = pc.signalingState;
+
+        console.log(`📊 状态检查 ${peerId}: connection=${actualState}, ice=${iceState}, signaling=${signalingState}, UI=${currentState}`);
+
+        // 如果信令已稳定且有音频流，但ICE状态还是new，可能需要强制更新
+        if (signalingState === 'stable' && iceState === 'new' && currentState === 'connecting') {
+            // 检查是否有音频流
+            const audioCard = document.getElementById(`audio-card-${peerId}`);
+            if (audioCard) {
+                console.log(`🎵 检测到音频流但ICE状态为new，强制设为已连接: ${peerId}`);
+                updatePeerConnectionStatus(peerId, 'connected');
+                return;
+            }
+        }
+
+        // 如果实际状态与记录状态不同，或者ICE状态表明连接成功但UI未更新
+        if (actualState !== currentState ||
+            (iceState === 'connected' || iceState === 'completed') && currentState !== 'connected') {
+            console.log(`🔄 状态不同步，更新 ${peerId}: 实际=${actualState}, ICE=${iceState}, 记录=${currentState}`);
+
+            // 优先使用ICE状态判断连接是否成功
+            if (iceState === 'connected' || iceState === 'completed') {
+                updatePeerConnectionStatus(peerId, 'connected');
+            } else if (iceState === 'failed') {
+                updatePeerConnectionStatus(peerId, 'failed');
+            } else {
+                updatePeerConnectionStatus(peerId, actualState);
+            }
+        }
+    });
 }
 
 async function updateConnectionStats() {
@@ -501,7 +852,12 @@ async function updateConnectionStats() {
     let connectedPeers = 0;
 
     for (const pc of peerConnections.values()) {
-        if (pc.connectionState !== 'connected') continue;
+        // 检查ICE连接状态和连接状态
+        const isConnected = pc.connectionState === 'connected' ||
+                           pc.iceConnectionState === 'connected' ||
+                           pc.iceConnectionState === 'completed';
+
+        if (!isConnected) continue;
 
         try {
             const stats = await pc.getStats();
