@@ -1059,9 +1059,8 @@ function showServerInfo() {
             <p>针对中国大陆网络环境优化，使用国内可访问的STUN服务器</p>
             <ul class="server-list">
                 <li><span class="server-name">stun.voipbuster.com</span><span class="server-location">欧洲</span></li>
-                <li><span class="server-name">stun.wirlab.net</span><span class="server-location">亚洲</span></li>
-                <li><span class="server-name">stun.ekiga.net</span><span class="server-location">全球</span></li>
-                <li><span class="server-name">stun.ideasip.com</span><span class="server-location">美国</span></li>
+                <li><span class="server-name">stun.miwifi.com</span><span class="server-location">中国</span></li>
+                <li><span class="server-name">stun.cloudflare.com</span><span class="server-location">全球</span></li>
             </ul>
         </div>
 
@@ -1093,6 +1092,7 @@ function showServerInfo() {
             <p>强制使用TURN中继，确保在任何网络环境下都能连接</p>
             <ul class="server-list">
                 <li><span class="server-name">relay1.expressturn.com</span><span class="server-location">专用中继</span></li>
+                <li><span class="server-name">turn.cloudflare.com</span><span class="server-location">备用中继</span></li>
             </ul>
             <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">
                 <i class="fas fa-exclamation-triangle"></i>
