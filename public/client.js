@@ -228,6 +228,9 @@ function setupWebSocketListeners(roomName, username) { // 接收用户名
                 connectionStateDisplay.textContent = 'Voice Connected';
                 connectionStateDisplay.classList.add('connected');
 
+                // 在主内容区添加自己的卡片
+                addMyAudioCard(username);
+
                 // 定期更新连接延迟和质量
                 setInterval(updateConnectionStats, 5000);
                 // 定期检查连接状态
@@ -717,6 +720,41 @@ function setupLocalAudioVisualizer() {
     visualizers.set('local', localVisualizer);
 }
 
+// 添加自己的音频卡片到主内容区
+function addMyAudioCard(username) {
+    if (!document.getElementById('audio-card-my')) {
+        const card = document.createElement('div');
+        card.id = 'audio-card-my';
+        card.className = 'audio-card my-card';
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar my-avatar';
+        avatar.textContent = username.charAt(0).toUpperCase();
+
+        const peerInfo = document.createElement('div');
+        peerInfo.className = 'peer-info my-name';
+        peerInfo.textContent = `${username} (你)`;
+
+        // 创建用户信息容器
+        const userInfoContainer = document.createElement('div');
+        userInfoContainer.className = 'user-info-container';
+        userInfoContainer.appendChild(peerInfo);
+
+        // 添加本地音频标识
+        const localLabel = document.createElement('span');
+        localLabel.className = 'local-audio-label';
+        localLabel.innerHTML = '<i class="fas fa-microphone"></i>';
+        localLabel.title = '本地音频';
+        userInfoContainer.appendChild(localLabel);
+
+        card.appendChild(avatar);
+        card.appendChild(userInfoContainer);
+
+        // 插入到容器的第一个位置
+        remoteAudioContainer.insertBefore(card, remoteAudioContainer.firstChild);
+    }
+}
+
 function addRemoteAudioStream(peerId, stream) {
     // --- 1. 在主内容区创建音频卡片 (保持不变) ---
     if (!document.getElementById(`audio-card-${peerId}`)) {
@@ -726,7 +764,9 @@ function addRemoteAudioStream(peerId, stream) {
 
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
-        
+        const username = peerIdToUsernameMap.get(peerId) || `User`;
+        avatar.textContent = username.charAt(0).toUpperCase();
+
         const audio = document.createElement('audio');
         audio.srcObject = stream;
         audio.autoplay = true;
@@ -734,10 +774,71 @@ function addRemoteAudioStream(peerId, stream) {
 
         const peerInfo = document.createElement('div');
         peerInfo.className = 'peer-info';
-        peerInfo.textContent = peerIdToUsernameMap.get(peerId) || `ID: ${peerId.substring(0, 8)}`; // 显示用户名
-        
+        peerInfo.textContent = username;
+
+        // 添加音量控制按钮
+        const volumeButton = document.createElement('button');
+        volumeButton.className = 'volume-button';
+        volumeButton.innerHTML = '<i class="fas fa-volume-up"></i>';
+        volumeButton.title = '调节音量';
+
+        // 添加音量控制面板（默认隐藏）
+        const volumePanel = document.createElement('div');
+        volumePanel.className = 'volume-panel hidden';
+        volumePanel.innerHTML = `
+            <div class="volume-slider-container">
+                <i class="fas fa-volume-up volume-icon"></i>
+                <input type="range" class="volume-slider" min="0" max="100" value="100">
+                <span class="volume-value">100%</span>
+            </div>
+        `;
+
+        // 音量按钮点击事件
+        volumeButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            volumePanel.classList.toggle('hidden');
+        });
+
+        // 点击其他地方关闭音量面板
+        document.addEventListener('click', (e) => {
+            if (!volumePanel.contains(e.target) && !volumeButton.contains(e.target)) {
+                volumePanel.classList.add('hidden');
+            }
+        });
+
+        // 音量控制事件
+        const volumeSlider = volumePanel.querySelector('.volume-slider');
+        const volumeValue = volumePanel.querySelector('.volume-value');
+        const volumeIcon = volumePanel.querySelector('.volume-icon');
+        const buttonIcon = volumeButton.querySelector('i');
+
+        volumeSlider.addEventListener('input', (e) => {
+            const volume = e.target.value / 100;
+            audio.volume = volume;
+            volumeValue.textContent = `${e.target.value}%`;
+
+            // 更新图标
+            let iconClass;
+            if (volume === 0) {
+                iconClass = 'fas fa-volume-mute';
+            } else if (volume < 0.5) {
+                iconClass = 'fas fa-volume-down';
+            } else {
+                iconClass = 'fas fa-volume-up';
+            }
+            volumeIcon.className = iconClass;
+            buttonIcon.className = iconClass;
+        });
+
+        // 创建用户信息容器
+        const userInfoContainer = document.createElement('div');
+        userInfoContainer.className = 'user-info-container';
+        userInfoContainer.appendChild(peerInfo);
+        userInfoContainer.appendChild(volumeButton);
+
         card.appendChild(avatar);
-        card.appendChild(peerInfo);
+        card.appendChild(userInfoContainer);
+        card.appendChild(volumePanel);
         card.appendChild(audio);
         remoteAudioContainer.appendChild(card);
 
@@ -875,6 +976,12 @@ function cleanup() {
 
     remoteAudioContainer.innerHTML = '';
     if(userListSidebar) userListSidebar.innerHTML = '';
+
+    // 清理自己的音频卡片
+    const myCard = document.getElementById('audio-card-my');
+    if (myCard) {
+        myCard.remove();
+    }
 
     localStream?.getTracks().forEach(track => track.stop());
     localAudio.srcObject = null;

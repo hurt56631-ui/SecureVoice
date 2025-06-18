@@ -20,10 +20,9 @@
         <!-- 左侧边栏 -->
         <div class="sidebar">
             <header class="sidebar-header">
-                <h1 id="room-name-display"></h1>
+                成员列表
             </header>
             <div class="channels">
-                <div class="channel-category">语音频道</div>
                 <div class="user-list" id="user-list-sidebar">
                     <!-- 用户列表将由 JS 动态添加 -->
                 </div>
@@ -46,16 +45,8 @@
         <!-- 中间主内容区 -->
         <div class="main-content">
             <header class="main-header">
-                <i class="fas fa-volume-up channel-icon"></i>
-                <span id="channel-name-main">语音频道</span>
-                <div class="header-actions">
-                    <button class="header-button" id="settings-btn" title="设置">
-                        <i class="fas fa-cog"></i>
-                    </button>
-                    <button class="header-button" id="info-btn" title="频道信息">
-                        <i class="fas fa-info-circle"></i>
-                    </button>
-                </div>
+                <i class="fas fa-hashtag channel-icon"></i>
+                <span id="room-name-display">房间名</span>
             </header>
             
             <audio id="localAudio" muted autoplay playsinline></audio>
@@ -101,7 +92,7 @@
             </div>
             <div class="input-group">
                 <i class="fas fa-door-open input-icon"></i>
-                <input type="text" id="roomNameInput" class="login-input" placeholder="例如：游戏开黑" maxlength="30">
+                <input type="text" id="roomNameInput" class="login-input" placeholder="房间名称或ID" maxlength="30">
             </div>
             <div class="server-selection">
                 <label for="serverSelect" class="server-label">
@@ -123,6 +114,28 @@
                 <i class="fas fa-sign-in-alt"></i>
                 <span>加入频道</span>
             </button>
+
+            <!-- IP泄露警告 -->
+            <div class="ip-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>警告：使用WebRTC可能泄露您的真实IP地址(房间中所有用户都可以得知您的IP地址 仅与您信任的人进行语音聊天！）</span>
+            </div>
+
+            <!-- WebRTC技术提示 -->
+            <div class="webrtc-message">
+                <div class="webrtc-text">
+                    <i class="fas fa-shield-alt webrtc-icon"></i>
+                    <span class="webrtc-slogan">本工具基于WebRTC技术 您的通话将被端到端加密</span>
+                </div>
+            </div>
+
+            <!-- 自由言论提示 -->
+            <div class="freedom-message">
+                <div class="freedom-text">
+                    <i class="fas fa-bullhorn freedom-icon"></i>
+                    <span class="freedom-slogan">We value uncensored and free talk! <br/> 拒绝审查！</span>
+                </div>
+            </div>
             <div id="statusText" class="status-text hidden">
                 <i class="fas fa-spinner fa-spin"></i>
                 <span>正在连接...</span>
