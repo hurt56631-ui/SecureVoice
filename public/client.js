@@ -72,8 +72,8 @@ const serverConfigs = {
                 urls: 'turn:relay1.expressturn.com:3480',
                 username: '000000002065629175',
                 credential: 'i5d1YIapn3pSTo27j0FlbFm6C0w='
-            },
-            { urls: 'turn:turn.cloudflare.com:3478' }
+            }
+            // { urls: 'turn:turn.cloudflare.com:3478' }
         ],
         iceTransportPolicy: 'all' // 允许所有传输方式
     },
