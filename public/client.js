@@ -68,12 +68,13 @@ const serverConfigs = {
         description: '包含TURN服务器，适用于严格NAT环境',
         iceServers: [
             { urls: 'stun:stun.voipbuster.com:3478' },
+            { urls: 'stun:stun.wirlab.net:3478' },
             {
                 urls: 'turn:relay1.expressturn.com:3480',
                 username: '000000002065629175',
                 credential: 'i5d1YIapn3pSTo27j0FlbFm6C0w='
-            }
-            // { urls: 'turn:turn.cloudflare.com:3478' }
+            },
+            { urls: 'stun:stun.l.google.com:19302' }
         ],
         iceTransportPolicy: 'all' // 允许所有传输方式
     },
@@ -85,8 +86,7 @@ const serverConfigs = {
                 urls: 'turn:relay1.expressturn.com:3480',
                 username: '000000002065629175',
                 credential: 'i5d1YIapn3pSTo27j0FlbFm6C0w='
-            },
-            { urls: 'turn:turn.cloudflare.com:3478' }
+            }
         ],
         iceTransportPolicy: 'relay' // 强制使用中继
     },
@@ -308,6 +308,29 @@ function createPeerConnection(peerId) {
     }
 
     console.log(`创建与 ${peerId} 的 PeerConnection，使用配置: ${currentServerConfig.name}`);
+
+    // 验证TURN服务器配置
+    const turnServers = currentServerConfig.iceServers.filter(server =>
+        server.urls.startsWith('turn:') || server.urls.startsWith('turns:')
+    );
+
+    if (turnServers.length > 0) {
+        console.log('🔍 TURN服务器配置验证:');
+        turnServers.forEach((server, index) => {
+            console.log(`  TURN ${index + 1}:`, {
+                urls: server.urls,
+                hasUsername: !!server.username,
+                hasCredential: !!server.credential,
+                username: server.username ? `${server.username.substring(0, 6)}...` : 'missing',
+                credential: server.credential ? `${server.credential.substring(0, 6)}...` : 'missing'
+            });
+
+            if (!server.username || !server.credential) {
+                console.error(`❌ TURN服务器配置错误: ${server.urls} 缺少username或credential`);
+            }
+        });
+    }
+
     const pc = new RTCPeerConnection(currentServerConfig);
     peerConnections.set(peerId, pc);
 
@@ -1112,13 +1135,9 @@ async function diagnoseNetworkConnectivity() {
     console.log('🔍 开始网络连接诊断...');
 
     try {
-        // 测试STUN服务器连接
-        const testPC = new RTCPeerConnection({
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun.voipbuster.com:3478' }
-            ]
-        });
+        // 测试当前配置的服务器
+        console.log(`🧪 测试当前配置: ${currentServerConfig.name}`);
+        const testPC = new RTCPeerConnection(currentServerConfig);
 
         const candidates = [];
 
@@ -1133,6 +1152,7 @@ async function diagnoseNetworkConnectivity() {
                 console.log('🧊 诊断ICE候选:', event.candidate.type, event.candidate.address);
             } else {
                 console.log('📊 网络诊断结果:', {
+                    config: currentServerConfig.name,
                     totalCandidates: candidates.length,
                     hostCandidates: candidates.filter(c => c.type === 'host').length,
                     srflxCandidates: candidates.filter(c => c.type === 'srflx').length,
@@ -1142,6 +1162,10 @@ async function diagnoseNetworkConnectivity() {
                 if (candidates.filter(c => c.type === 'srflx').length === 0) {
                     console.warn('⚠️ 警告：未获取到srflx候选，可能存在NAT穿透问题');
                     console.log('💡 建议：尝试使用TURN增强节点');
+                }
+
+                if (currentServerConfig.iceTransportPolicy === 'relay' && candidates.filter(c => c.type === 'relay').length === 0) {
+                    console.error('❌ 错误：TURN专用模式但未获取到relay候选，请检查TURN服务器配置');
                 }
 
                 testPC.close();
@@ -1155,6 +1179,9 @@ async function diagnoseNetworkConnectivity() {
 
     } catch (error) {
         console.error('❌ 网络诊断失败:', error);
+        if (error.message.includes('username') && error.message.includes('credential')) {
+            console.error('🔑 TURN服务器认证错误，请检查username和credential配置');
+        }
     }
 }
 
