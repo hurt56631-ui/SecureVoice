@@ -1199,7 +1199,6 @@ function showServerInfo() {
             <p>强制使用TURN中继，确保在任何网络环境下都能连接</p>
             <ul class="server-list">
                 <li><span class="server-name">relay1.expressturn.com</span><span class="server-location">专用中继</span></li>
-                <li><span class="server-name">turn.cloudflare.com</span><span class="server-location">备用中继</span></li>
             </ul>
             <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">
                 <i class="fas fa-exclamation-triangle"></i>
