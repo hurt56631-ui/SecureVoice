@@ -370,14 +370,9 @@ function createPeerConnection(peerId) {
         console.log(`🎯 音频流已建立，标记 ${peerId} 为已连接`);
         updatePeerConnectionStatus(peerId, 'connected');
 
-        // 额外检查：如果1秒后ICE状态仍然不对，再次强制更新
-        setTimeout(() => {
-            const currentUIState = peerConnectionStates.get(peerId);
-            if (currentUIState !== 'connected') {
-                console.log(`🔧 强制更新连接状态: ${peerId}`);
-                updatePeerConnectionStatus(peerId, 'connected');
-            }
-        }, 1000);
+        // 设置标记，表示此连接已通过音频流确认成功
+        // 这样状态检查逻辑就不会重置状态
+        pc._audioStreamEstablished = true;
     };
 
     pc.onconnectionstatechange = () => {
@@ -1061,9 +1056,27 @@ function checkAllConnectionStates() {
             }
         }
 
+        // 特殊处理：如果音频流已建立，不要重置状态
+        if (pc._audioStreamEstablished && currentState === 'connected') {
+            // 音频流已建立且UI显示已连接，保持状态不变
+            return;
+        }
+
+        // 特殊处理：如果已经有音频流且信令稳定，认为连接成功
+        const audioCard = document.getElementById(`audio-card-${peerId}`);
+        const hasAudioStream = audioCard !== null;
+
+        if (hasAudioStream && signalingState === 'stable' && currentState !== 'connected') {
+            console.log(`🎵 检测到音频流且信令稳定，强制设为已连接: ${peerId}`);
+            updatePeerConnectionStatus(peerId, 'connected');
+            pc._audioStreamEstablished = true;
+            return;
+        }
+
         // 如果实际状态与记录状态不同，或者ICE状态表明连接成功但UI未更新
-        if (actualState !== currentState ||
-            (iceState === 'connected' || iceState === 'completed') && currentState !== 'connected') {
+        // 但要避免在有音频流时重置状态
+        if (!pc._audioStreamEstablished && (actualState !== currentState ||
+            (iceState === 'connected' || iceState === 'completed') && currentState !== 'connected')) {
             console.log(`🔄 状态不同步，更新 ${peerId}: 实际=${actualState}, ICE=${iceState}, 记录=${currentState}`);
 
             // 优先使用ICE状态判断连接是否成功
