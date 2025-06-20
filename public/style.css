@@ -1816,3 +1816,245 @@ body::before {
         box-shadow: var(--shadow-small);
     }
 }
+
+/* 游戏区域样式 */
+.game-area {
+    background: linear-gradient(135deg, var(--background-secondary) 0%, var(--background-tertiary) 100%);
+    border-radius: var(--card-border-radius);
+    margin: 16px;
+    box-shadow: var(--shadow-medium);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.game-area:not(.hidden) {
+    animation: slide-in 0.4s ease-out forwards;
+}
+
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: var(--gradient-brand);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.game-header h3 {
+    margin: 0;
+    color: var(--header-primary);
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.start-game-btn {
+    background: var(--gradient-success);
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: var(--button-border-radius);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: var(--shadow-small);
+}
+
+.start-game-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
+}
+
+.start-game-btn:disabled {
+    background: var(--interactive-muted);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.game-content {
+    padding: 20px;
+}
+
+.game-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: var(--background-floating);
+    border-radius: var(--button-border-radius);
+    border: 1px solid var(--border-color);
+}
+
+.game-info {
+    display: flex;
+    gap: 24px;
+}
+
+.range-display, .round-display {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--header-primary);
+}
+
+.range-display span, .round-display span {
+    color: var(--brand-color);
+    font-weight: 700;
+}
+
+.waiting-status {
+    font-size: 14px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.waiting-status span {
+    color: var(--yellow-400);
+    font-weight: 600;
+}
+
+.guess-input-area {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+
+#guess-input {
+    flex: 1;
+    padding: 12px 16px;
+    background: var(--input-background);
+    border: 2px solid var(--border-color);
+    border-radius: var(--button-border-radius);
+    color: var(--text-normal);
+    font-size: 16px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+#guess-input:focus {
+    outline: none;
+    border-color: var(--brand-color);
+    box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.1);
+}
+
+#submit-guess-btn {
+    background: var(--gradient-brand);
+    border: none;
+    color: white;
+    padding: 12px 20px;
+    border-radius: var(--button-border-radius);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: var(--shadow-small);
+}
+
+#submit-guess-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
+}
+
+#submit-guess-btn:disabled {
+    background: var(--interactive-muted);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.game-messages {
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--background-floating);
+    border-radius: var(--button-border-radius);
+    border: 1px solid var(--border-color);
+    padding: 12px;
+}
+
+.game-message {
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    border-radius: var(--button-border-radius);
+    font-size: 14px;
+    line-height: 1.4;
+    animation: slide-in 0.3s ease-out forwards;
+}
+
+.game-message.info {
+    background: rgba(88, 101, 242, 0.1);
+    border-left: 3px solid var(--brand-color);
+    color: var(--text-normal);
+}
+
+.game-message.success {
+    background: rgba(45, 199, 112, 0.1);
+    border-left: 3px solid var(--green-360);
+    color: var(--green-360);
+}
+
+.game-message.danger {
+    background: rgba(242, 63, 66, 0.1);
+    border-left: 3px solid var(--red-400);
+    color: var(--red-400);
+}
+
+.game-message.warning {
+    background: rgba(254, 231, 92, 0.1);
+    border-left: 3px solid var(--yellow-400);
+    color: var(--yellow-400);
+}
+
+.game-message:last-child {
+    margin-bottom: 0;
+}
+
+/* 游戏按钮动画 */
+@keyframes bomb-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+.game-header h3 i {
+    animation: bomb-pulse 2s ease-in-out infinite;
+    color: var(--red-400);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .game-area {
+        margin: 8px;
+    }
+
+    .game-status {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+    }
+
+    .game-info {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .guess-input-area {
+        flex-direction: column;
+    }
+
+    #guess-input, #submit-guess-btn {
+        width: 100%;
+    }
+}

@@ -55,6 +55,43 @@
                 <!-- 远程用户的音频卡片将由 JS 添加 -->
             </div>
 
+            <!-- 游戏区域 -->
+            <div class="game-area hidden" id="game-area">
+                <div class="game-header">
+                    <h3><i class="fas fa-bomb"></i> 数字炸弹</h3>
+                    <button id="start-game-btn" class="start-game-btn">
+                        <i class="fas fa-play"></i> 开始游戏
+                    </button>
+                </div>
+
+                <div class="game-content hidden" id="game-content">
+                    <div class="game-status">
+                        <div class="game-info">
+                            <div class="range-display">
+                                范围: <span id="game-range">1-100</span>
+                            </div>
+                            <div class="round-display">
+                                第 <span id="game-round">1</span> 轮
+                            </div>
+                        </div>
+                        <div class="waiting-status" id="waiting-status">
+                            等待玩家猜测... (<span id="waiting-count">0</span>/<span id="total-players">0</span>)
+                        </div>
+                    </div>
+
+                    <div class="guess-input-area">
+                        <input type="number" id="guess-input" placeholder="输入你的猜测..." min="1" max="100">
+                        <button id="submit-guess-btn" disabled>
+                            <i class="fas fa-paper-plane"></i> 提交
+                        </button>
+                    </div>
+
+                    <div class="game-messages" id="game-messages">
+                        <!-- 游戏消息将在这里显示 -->
+                    </div>
+                </div>
+            </div>
+
             <div class="chat-area">
                  <div id="chat-messages"></div>
                  <div class="chat-input-area">
@@ -67,6 +104,9 @@
             <div class="main-content-footer">
                 <button id="mic-toggle-footer-btn" class="footer-button" title="切换麦克风">
                     <i class="fas fa-microphone"></i>
+                </button>
+                <button id="toggle-game-btn" class="footer-button" title="切换游戏">
+                    <i class="fas fa-gamepad"></i>
                 </button>
                 <button id="toggle-chat-btn" class="footer-button" title="切换聊天">
                     <i class="fas fa-comments"></i>

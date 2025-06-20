@@ -19,6 +19,7 @@ const connectionQualityDisplay = document.getElementById('connection-quality');
 const connectionStateDisplay = document.getElementById('connection-state');
 
 const toggleChatButton = document.getElementById('toggle-chat-btn');
+const toggleGameButton = document.getElementById('toggle-game-btn');
 const disconnectButton = document.getElementById('disconnect-btn');
 const chatArea = document.querySelector('.chat-area');
 
@@ -26,6 +27,19 @@ const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
 const sendButton = document.getElementById('send-button');
 const userListSidebar = document.getElementById('user-list-sidebar');
+
+// 游戏相关DOM元素
+const gameArea = document.getElementById('game-area');
+const gameContent = document.getElementById('game-content');
+const startGameBtn = document.getElementById('start-game-btn');
+const gameRange = document.getElementById('game-range');
+const gameRound = document.getElementById('game-round');
+const waitingStatus = document.getElementById('waiting-status');
+const waitingCount = document.getElementById('waiting-count');
+const totalPlayers = document.getElementById('total-players');
+const guessInput = document.getElementById('guess-input');
+const submitGuessBtn = document.getElementById('submit-guess-btn');
+const gameMessages = document.getElementById('game-messages');
 
 // 服务器选择相关元素
 const serverSelect = document.getElementById('serverSelect');
@@ -41,6 +55,16 @@ let socket;
 const peerConnections = new Map();
 const visualizers = new Map(); // 存储 visualizer 实例
 const pendingIceCandidates = new Map(); // 存储待处理的ICE候选
+
+// --- 游戏状态变量 ---
+let gameState = {
+    active: false,
+    type: null,
+    currentRange: { min: 1, max: 100 },
+    round: 1,
+    hasGuessed: false,
+    waitingForOthers: false
+};
 // 服务器配置
 const serverConfigs = {
     'china-optimized': {
@@ -170,12 +194,37 @@ toggleChatButton.onclick = () => {
     chatArea.classList.toggle('hidden');
 };
 
+toggleGameButton.onclick = () => {
+    gameArea.classList.toggle('hidden');
+};
+
 disconnectButton.onclick = () => {
     // 断开连接
     if (socket && socket.readyState === WebSocket.OPEN) {
         socket.close();
     }
     cleanup();
+};
+
+// 游戏相关事件监听器
+startGameBtn.onclick = () => {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'start-number-bomb',
+            data: {}
+        }));
+    }
+};
+
+submitGuessBtn.onclick = () => {
+    submitGuess();
+};
+
+guessInput.onkeydown = (event) => {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        submitGuess();
+    }
 };
 
 // 服务器选择事件
@@ -255,6 +304,7 @@ function setupWebSocketListeners(roomName, username) { // 接收用户名
                 chatInput.disabled = false;
                 sendButton.disabled = false;
                 setupChat();
+                setupGame();
                 break;
             case 'new-peer':
                 console.log(`新成员加入: ${data.peerId} (${data.username})`);
@@ -283,6 +333,26 @@ function setupWebSocketListeners(roomName, username) { // 接收用户名
             case 'username-taken': // 新增：处理用户名重复
                 alert(`用户名 "${data.username}" 已被占用，请选择其他用户名。`);
                 cleanup(); // 清理并重新启用输入
+                break;
+
+            // 游戏相关消息处理
+            case 'game-state-update':
+                handleGameStateUpdate(data);
+                break;
+            case 'game-round-result':
+                handleGameRoundResult(data);
+                break;
+            case 'game-end':
+                handleGameEnd(data);
+                break;
+            case 'player-guessed':
+                handlePlayerGuessed(data);
+                break;
+            case 'player-disconnected-during-game':
+                handlePlayerDisconnectedDuringGame(data);
+                break;
+            case 'game-error':
+                handleGameError(data);
                 break;
         }
     };
@@ -1270,4 +1340,195 @@ function showServerInfo() {
 
     serverInfoContent.innerHTML = serverInfoHTML;
     serverInfoModal.classList.remove('hidden');
+}
+
+// --- 游戏相关函数 ---
+
+function setupGame() {
+    // 初始化游戏区域
+    gameArea.classList.remove('hidden');
+    gameContent.classList.add('hidden');
+    startGameBtn.style.display = 'flex';
+
+    // 重置游戏状态
+    gameState.active = false;
+    gameState.hasGuessed = false;
+    gameState.waitingForOthers = false;
+
+    // 禁用游戏输入
+    guessInput.disabled = true;
+    submitGuessBtn.disabled = true;
+
+    console.log('游戏系统已初始化');
+}
+
+function submitGuess() {
+    const guess = parseInt(guessInput.value.trim());
+    if (isNaN(guess)) {
+        alert('请输入有效的数字');
+        return;
+    }
+
+    if (guess < gameState.currentRange.min || guess > gameState.currentRange.max) {
+        alert(`请输入 ${gameState.currentRange.min}-${gameState.currentRange.max} 之间的数字`);
+        return;
+    }
+
+    if (gameState.hasGuessed) {
+        alert('您已经提交过猜测了，请等待其他玩家');
+        return;
+    }
+
+    // 发送猜测到服务器
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'submit-guess',
+            data: { guess: guess }
+        }));
+
+        // 更新本地状态
+        gameState.hasGuessed = true;
+        gameState.waitingForOthers = true;
+
+        // 禁用输入和按钮
+        guessInput.disabled = true;
+        submitGuessBtn.disabled = true;
+
+        // 清空输入框
+        guessInput.value = '';
+
+        addGameMessage(`您猜测了: ${guess}，等待其他玩家...`, 'info');
+    }
+}
+
+function handleGameStateUpdate(data) {
+    console.log('游戏状态更新:', data);
+
+    gameState.active = data.gameActive;
+    gameState.type = data.gameType;
+    gameState.currentRange = data.currentRange;
+    gameState.round = data.round;
+    gameState.hasGuessed = false;
+    gameState.waitingForOthers = false;
+
+    // 显示游戏区域
+    gameArea.classList.remove('hidden');
+    gameContent.classList.remove('hidden');
+
+    // 更新UI
+    updateGameUI();
+
+    // 启用输入
+    guessInput.disabled = false;
+    submitGuessBtn.disabled = false;
+
+    // 隐藏开始按钮
+    startGameBtn.style.display = 'none';
+
+    addGameMessage(`🎮 数字炸弹游戏开始！范围: ${data.currentRange.min}-${data.currentRange.max}`, 'success');
+    addGameMessage(`💣 小心炸弹！所有人都猜测后会更新范围`, 'info');
+}
+
+function handleGameRoundResult(data) {
+    console.log('回合结果:', data);
+
+    gameState.currentRange = data.currentRange;
+    gameState.round = data.round;
+    gameState.hasGuessed = false;
+    gameState.waitingForOthers = false;
+
+    // 更新UI
+    updateGameUI();
+
+    // 启用输入
+    guessInput.disabled = false;
+    submitGuessBtn.disabled = false;
+
+    // 显示回合结果
+    addGameMessage(`📊 第 ${data.round - 1} 轮结果:`, 'info');
+
+    // 显示所有玩家的猜测
+    Object.entries(data.guesses).forEach(([username, guess]) => {
+        addGameMessage(`${username}: ${guess}`, 'info');
+    });
+
+    addGameMessage(`🎯 新范围: ${data.currentRange.min}-${data.currentRange.max}`, 'warning');
+    addGameMessage(`🔄 第 ${data.round} 轮开始！`, 'success');
+}
+
+function handleGameEnd(data) {
+    console.log('游戏结束:', data);
+
+    gameState.active = false;
+
+    // 禁用输入
+    guessInput.disabled = true;
+    submitGuessBtn.disabled = true;
+
+    // 显示开始按钮
+    startGameBtn.style.display = 'flex';
+
+    if (data.result === 'explosion') {
+        addGameMessage(`💥 游戏结束！${data.explodedUsername} 踩到了炸弹！`, 'danger');
+        addGameMessage(`💣 炸弹数字是: ${data.bombNumber}`, 'danger');
+
+        // 显示最后一轮的猜测
+        addGameMessage(`📊 最后一轮猜测:`, 'info');
+        Object.entries(data.guesses).forEach(([username, guess]) => {
+            const isExploded = guess === data.bombNumber;
+            addGameMessage(`${username}: ${guess} ${isExploded ? '💥' : ''}`, isExploded ? 'danger' : 'info');
+        });
+    } else if (data.result === 'insufficient-players') {
+        addGameMessage(`⚠️ ${data.message}`, 'warning');
+    }
+}
+
+function handlePlayerGuessed(data) {
+    console.log('玩家猜测:', data);
+
+    addGameMessage(`${data.playerUsername} 已提交猜测 (${data.waitingCount}/${data.totalPlayers} 等待中)`, 'info');
+
+    // 更新等待状态
+    waitingCount.textContent = data.waitingCount;
+    totalPlayers.textContent = data.totalPlayers;
+}
+
+function handlePlayerDisconnectedDuringGame(data) {
+    console.log('游戏中玩家断开:', data);
+
+    addGameMessage(`${data.disconnectedUsername} 离开了游戏`, 'warning');
+
+    // 更新等待状态
+    waitingCount.textContent = data.waitingCount;
+    totalPlayers.textContent = data.totalPlayers;
+}
+
+function handleGameError(data) {
+    console.log('游戏错误:', data);
+    addGameMessage(`❌ ${data.message}`, 'danger');
+}
+
+function updateGameUI() {
+    gameRange.textContent = `${gameState.currentRange.min}-${gameState.currentRange.max}`;
+    gameRound.textContent = gameState.round;
+
+    // 更新输入框的min/max属性
+    guessInput.min = gameState.currentRange.min;
+    guessInput.max = gameState.currentRange.max;
+    guessInput.placeholder = `输入 ${gameState.currentRange.min}-${gameState.currentRange.max} 之间的数字...`;
+}
+
+function addGameMessage(message, type = 'info') {
+    const messageElement = document.createElement('div');
+    messageElement.className = `game-message ${type}`;
+    messageElement.textContent = message;
+
+    gameMessages.appendChild(messageElement);
+    gameMessages.scrollTop = gameMessages.scrollHeight;
+
+    // 限制消息数量，避免过多消息
+    const messages = gameMessages.children;
+    if (messages.length > 50) {
+        gameMessages.removeChild(messages[0]);
+    }
 }
