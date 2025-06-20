@@ -2033,28 +2033,257 @@ body::before {
     color: var(--red-400);
 }
 
-/* 响应式设计 */
+/* 游戏区域移动端适配 */
 @media (max-width: 768px) {
     .game-area {
         margin: 8px;
+        border-radius: 8px;
+    }
+
+    .game-header {
+        padding: 12px 16px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .game-header h3 {
+        font-size: 16px;
+        gap: 6px;
+    }
+
+    .start-game-btn {
+        padding: 8px 12px;
+        font-size: 14px;
+        gap: 4px;
+        min-width: 100px;
+    }
+
+    .game-content {
+        padding: 16px;
     }
 
     .game-status {
         flex-direction: column;
         gap: 12px;
-        align-items: flex-start;
+        align-items: stretch;
+        padding: 12px;
     }
 
     .game-info {
-        flex-direction: column;
-        gap: 8px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        text-align: center;
+    }
+
+    .range-display, .round-display {
+        font-size: 14px;
+        padding: 8px;
+        background: rgba(88, 101, 242, 0.1);
+        border-radius: 6px;
+        border: 1px solid rgba(88, 101, 242, 0.2);
+    }
+
+    .waiting-status {
+        font-size: 13px;
+        text-align: center;
+        padding: 8px;
+        background: rgba(254, 231, 92, 0.1);
+        border-radius: 6px;
+        border: 1px solid rgba(254, 231, 92, 0.2);
     }
 
     .guess-input-area {
         flex-direction: column;
+        gap: 12px;
+        margin-bottom: 16px;
     }
 
-    #guess-input, #submit-guess-btn {
+    #guess-input {
         width: 100%;
+        padding: 14px 16px;
+        font-size: 18px; /* 防止iOS缩放 */
+        text-align: center;
+        border-radius: 8px;
+        box-sizing: border-box;
+    }
+
+    #submit-guess-btn {
+        width: 100%;
+        padding: 14px 20px;
+        font-size: 16px;
+        border-radius: 8px;
+        justify-content: center;
+        min-height: 48px; /* 触摸友好 */
+    }
+
+    .game-messages {
+        max-height: 150px;
+        padding: 8px;
+        border-radius: 8px;
+    }
+
+    .game-message {
+        padding: 6px 10px;
+        margin-bottom: 6px;
+        font-size: 13px;
+        line-height: 1.3;
+        border-radius: 6px;
+    }
+}
+
+/* 小屏幕手机游戏优化 */
+@media (max-width: 480px) {
+    .game-area {
+        margin: 4px;
+    }
+
+    .game-header {
+        padding: 10px 12px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .game-header h3 {
+        font-size: 15px;
+        text-align: center;
+    }
+
+    .start-game-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 10px;
+    }
+
+    .game-content {
+        padding: 12px;
+    }
+
+    .game-info {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .range-display, .round-display {
+        font-size: 13px;
+        padding: 6px;
+    }
+
+    .waiting-status {
+        font-size: 12px;
+        padding: 6px;
+    }
+
+    #guess-input {
+        padding: 12px 14px;
+        font-size: 16px;
+    }
+
+    #submit-guess-btn {
+        padding: 12px 16px;
+        font-size: 15px;
+        min-height: 44px;
+    }
+
+    .game-messages {
+        max-height: 120px;
+        padding: 6px;
+    }
+
+    .game-message {
+        padding: 5px 8px;
+        margin-bottom: 4px;
+        font-size: 12px;
+    }
+}
+
+/* 横屏模式游戏优化 */
+@media (max-width: 768px) and (orientation: landscape) {
+    .game-area {
+        margin: 4px 8px;
+    }
+
+    .game-content {
+        padding: 12px;
+    }
+
+    .game-status {
+        flex-direction: row;
+        align-items: center;
+        padding: 8px 12px;
+    }
+
+    .game-info {
+        display: flex;
+        flex-direction: row;
+        gap: 16px;
+    }
+
+    .range-display, .round-display {
+        font-size: 13px;
+        padding: 6px 10px;
+    }
+
+    .waiting-status {
+        font-size: 12px;
+        padding: 6px 10px;
+        margin-left: auto;
+    }
+
+    .guess-input-area {
+        flex-direction: row;
+        gap: 12px;
+    }
+
+    #guess-input {
+        flex: 1;
+        font-size: 16px;
+        padding: 10px 14px;
+    }
+
+    #submit-guess-btn {
+        width: auto;
+        min-width: 100px;
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+
+    .game-messages {
+        max-height: 100px;
+    }
+}
+
+/* 触摸设备游戏优化 */
+@media (hover: none) and (pointer: coarse) {
+    .start-game-btn:hover {
+        transform: none;
+        box-shadow: var(--shadow-small);
+    }
+
+    .start-game-btn:active {
+        transform: scale(0.98);
+        transition: transform 0.1s ease;
+    }
+
+    #submit-guess-btn:hover {
+        transform: none;
+        box-shadow: var(--shadow-small);
+    }
+
+    #submit-guess-btn:active {
+        transform: scale(0.98);
+        transition: transform 0.1s ease;
+    }
+
+    /* 增加触摸目标大小 */
+    .start-game-btn, #submit-guess-btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* 优化输入框触摸体验 */
+    #guess-input {
+        min-height: 44px;
     }
 }
