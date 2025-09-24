@@ -3,6 +3,54 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { serveDir } from "https://deno.land/std@0.224.0/http/file_server.ts";
 
+// --- Firestore 配置 ---
+const FIREBASE_PROJECT_ID = 'chrome-sum-448615-f2'; // ✅ 您的 Firebase 项目 ID
+const FIREBASE_API_KEY = 'AIzaSyBejyAos_TNLoJpFf59OQS0e0-jFNC-l4M';   // ✅ 您的 Web API Key
+const FIRESTORE_BASE_URL = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
+
+// --- 操作 Firestore 的辅助函数 ---
+async function updateFirestoreRoom(roomName: string, memberCount: number) {
+    const documentPath = `active_rooms/${encodeURIComponent(roomName)}`;
+    const url = `${FIRESTORE_BASE_URL}/${documentPath}?key=${FIREBASE_API_KEY}`;
+    const data = {
+        fields: {
+            roomName: { stringValue: roomName },
+            memberCount: { integerValue: memberCount.toString() },
+            createdAt: { timestampValue: new Date().toISOString() }
+        }
+    };
+    try {
+        const response = await fetch(url, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) {
+            console.error(`[Firestore] Failed to update room ${roomName}:`, await response.text());
+        } else {
+            console.log(`[Firestore] Successfully updated room ${roomName} with ${memberCount} members.`);
+        }
+    } catch (error) {
+        console.error(`[Firestore] Network error updating room ${roomName}:`, error);
+    }
+}
+
+async function deleteFirestoreRoom(roomName: string) {
+    const documentPath = `active_rooms/${encodeURIComponent(roomName)}`;
+    const url = `${FIRESTORE_BASE_URL}/${documentPath}?key=${FIREBASE_API_KEY}`;
+    try {
+        const response = await fetch(url, { method: 'DELETE' });
+        if (!response.ok && response.status !== 404) {
+            console.error(`[Firestore] Failed to delete room ${roomName}:`, await response.text());
+        } else {
+            console.log(`[Firestore] Successfully deleted room ${roomName}.`);
+        }
+    } catch (error) {
+        console.error(`[Firestore] Network error deleting room ${roomName}:`, error);
+    }
+}
+
+
 // 房间数据结构: Map<roomName, Map<peerId, { socket: WebSocket, username: string }>>
 const rooms = new Map<string, Map<string, { socket: WebSocket, username: string }>>();
 
@@ -373,5 +421,5 @@ const handler = (req: Request): Response => {
 };
 
 // 启动服务器
-console.log("Voice chat server running on http://localhost:8000");
-serve(handler, { port: 8000 });
+//console.log("Voice chat server running on http://localhost:8000");
+//serve(handler, { port: 8000 });
